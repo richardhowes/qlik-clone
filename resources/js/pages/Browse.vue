@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { Database, FileSpreadsheet, Link2, Plus, Sheet } from 'lucide-vue-next';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -60,9 +60,11 @@ const dataSourceTypes = [
                             <CardDescription>{{ source.description }}</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <Button variant="outline" size="sm" class="w-full">
-                                <Link2 class="mr-2 h-4 w-4" />
-                                Connect
+                            <Button variant="outline" size="sm" class="w-full" as-child>
+                                <Link :href="route('data-sources.create', { type: source.title.toLowerCase().replace(' ', '-') })">
+                                    <Link2 class="mr-2 h-4 w-4" />
+                                    Connect
+                                </Link>
                             </Button>
                         </CardContent>
                     </Card>
@@ -73,9 +75,11 @@ const dataSourceTypes = [
             <div>
                 <div class="mb-4 flex items-center justify-between">
                     <h2 class="text-lg font-semibold">Connected Sources</h2>
-                    <Button variant="outline" size="sm">
-                        <Plus class="mr-2 h-4 w-4" />
-                        Add Source
+                    <Button variant="outline" size="sm" as-child>
+                        <Link :href="route('data-sources.index')">
+                            <Plus class="mr-2 h-4 w-4" />
+                            View All Sources
+                        </Link>
                     </Button>
                 </div>
 

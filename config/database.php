@@ -97,6 +97,12 @@ return [
             'sslmode' => 'prefer',
         ],
 
+        'duckdb' => [
+            'driver' => 'duckdb',
+            'path' => env('ANALYTICS_DB_PATH', storage_path('analytics/warehouse.duckdb')),
+            'read_only' => false,
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),

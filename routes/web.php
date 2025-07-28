@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DataSourceController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -16,6 +17,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // BI Tool Routes
     Route::resource('dashboards', DashboardController::class);
     Route::post('dashboards/{dashboard}/favorite', [DashboardController::class, 'toggleFavorite'])->name('dashboards.favorite');
+    
+    Route::resource('data-sources', DataSourceController::class);
+    Route::post('data-sources/{data_source}/test', [DataSourceController::class, 'test'])->name('data-sources.test');
+    Route::get('data-source-config-fields', [DataSourceController::class, 'getConfigFields'])->name('data-sources.config-fields');
 
     Route::get('insights', function () {
         return Inertia::render('Insights');
