@@ -120,7 +120,19 @@ class DataSourceController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'connection_config' => 'required|array',
+            'test_only' => 'boolean',
         ]);
+
+        // If this is just a test, validate and test the connection
+        if ($request->input('test_only', false)) {
+            // Create a temporary data source object for testing
+            $tempDataSource = clone $dataSource;
+            $tempDataSource->connection_config = Crypt::encryptString(json_encode($validated['connection_config']));
+
+            $result = $this->connectionManager->testConnection($tempDataSource);
+
+            return back()->with('testResult', $result);
+        }
 
         // Encrypt connection config
         $validated['connection_config'] = Crypt::encryptString(json_encode($validated['connection_config']));
