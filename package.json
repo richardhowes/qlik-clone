@@ -49,6 +49,7 @@
         "vue-codemirror": "^6.1.1",
         "vue-echarts": "^7.0.3",
         "vue-grid-layout": "^3.0.0-beta1",
+        "vue3-grid-layout-next": "^1.0.7",
         "vuedraggable": "^4.1.0",
         "ziggy-js": "^2.4.2"
     },

@@ -9,7 +9,7 @@ import { BarChart, LineChart, PieChart, ScatterChart } from '@/components/charts
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
-import { GridLayout, GridItem } from 'vue-grid-layout';
+import { GridLayout, GridItem } from 'vue3-grid-layout-next';
 import { Save, Plus, Settings, Trash2, GripVertical } from 'lucide-vue-next';
 import { ref, computed, onMounted, nextTick } from 'vue';
 import axios from 'axios';
@@ -323,6 +323,114 @@ const getWidgetForItem = (item: any) => {
     return widget;
 };
 
+// Format chart data based on widget config
+const formatChartData = (queryResult: any, config: any) => {
+    if (!queryResult || !queryResult.data || queryResult.data.length === 0) {
+        return [];
+    }
+
+    const { xAxis, yAxis, series, chartType } = config || {};
+    
+    // If no axis configuration, auto-detect based on data
+    let xCol = xAxis;
+    let yCol = yAxis;
+    
+    if (!xCol || !yCol) {
+        // Auto-detect columns based on query data
+        const columns = (queryResult.columns || []).map((col: any) => 
+            typeof col === 'string' ? col : (col?.name || '')
+        ).filter(Boolean);
+        
+        // If we have only one column, it might be a grouped result
+        if (columns.length === 1 && queryResult.data.length > 0) {
+            // Check the structure of the first data item
+            const firstRow = queryResult.data[0];
+            const rowKeys = Object.keys(firstRow);
+            
+            // Use the actual keys from the data
+            if (rowKeys.length >= 2) {
+                xCol = rowKeys[0];
+                yCol = rowKeys[1];
+            } else if (rowKeys.length === 1) {
+                // Single column - create a value distribution chart
+                const columnName = rowKeys[0];
+                
+                // Count occurrences of each value
+                const valueCounts: Record<string, number> = {};
+                queryResult.data.forEach((row: any) => {
+                    const value = String(row[columnName] || 'Unknown');
+                    valueCounts[value] = (valueCounts[value] || 0) + 1;
+                });
+                
+                // Convert to chart data format
+                return Object.entries(valueCounts)
+                    .sort((a, b) => b[1] - a[1]) // Sort by count descending
+                    .slice(0, 20) // Limit to top 20 values
+                    .map(([name, value]) => ({ name, value }));
+            }
+        } else {
+            // Generic auto-detection
+            if (!xCol && columns.length > 0) {
+                xCol = columns[0];
+            }
+            if (!yCol && columns.length > 1) {
+                yCol = columns[1];
+            }
+        }
+    }
+    
+    // Handle column format (could be string or object with name property)
+    const getColumnName = (col: any) => {
+        if (!col) return '';
+        return typeof col === 'string' ? col : (col.name || '');
+    };
+    xCol = getColumnName(xCol);
+    yCol = getColumnName(yCol);
+    
+    // If still no columns, return empty data
+    if (!xCol && !yCol) {
+        return [];
+    }
+    
+    // For pie charts, return simple name/value pairs
+    if (chartType === 'pie') {
+        // Aggregate data for pie chart
+        const aggregated: Record<string, number> = {};
+        queryResult.data.forEach((row: any) => {
+            const key = String(row[xCol] || '');
+            const value = Number(row[yCol] || 0);
+            aggregated[key] = (aggregated[key] || 0) + value;
+        });
+        
+        return Object.entries(aggregated).map(([name, value]) => ({ name, value }));
+    }
+    
+    // For bar and line charts, support both simple and grouped data
+    const xValues = [...new Set(queryResult.data.map((row: any) => String(row[xCol])))];
+    
+    if (series && series.length > 0) {
+        // Multiple series - return grouped data format
+        const seriesData = series.map((seriesCol: string) => ({
+            name: seriesCol,
+            data: xValues.map(x => {
+                const row = queryResult.data.find((r: any) => String(r[xCol]) === x);
+                return row ? (Number(row[seriesCol]) || 0) : 0;
+            }),
+        }));
+        
+        return {
+            categories: xValues,
+            series: seriesData,
+        };
+    } else {
+        // Simple format for basic charts
+        return queryResult.data.map((row: any) => ({
+            name: String(row[xCol] || ''),
+            value: Number(row[yCol] || 0)
+        }));
+    }
+};
+
 // Get widget data - execute query and return visualization data
 const widgetData = ref<Record<string, any>>({});
 const loadingWidgets = ref<Set<string>>(new Set());
@@ -408,7 +516,7 @@ onMounted(async () => {
 
             <!-- Grid Layout -->
             <div class="flex-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-4 overflow-auto">
-                <div class="min-h-[800px] relative" style="position: relative;">
+                <div class="min-h-[800px]" style="position: relative; width: 100%;">
                     <GridLayout
                         :layout="layout"
                         :col-num="colNum"
@@ -431,7 +539,6 @@ onMounted(async () => {
                             :w="item.w"
                             :h="item.h"
                             :i="item.i"
-                            class="vue-grid-item"
                         >
                         <div
                             class="h-full flex flex-col bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm overflow-hidden"
@@ -475,7 +582,7 @@ onMounted(async () => {
                                                 pie: PieChart,
                                                 scatter: ScatterChart
                                             }[getWidgetForItem(item)!.config.chartType]"
-                                            :data="widgetData[item.i]"
+                                            :data="formatChartData(widgetData[item.i], getWidgetForItem(item)!.config)"
                                             :config="getWidgetForItem(item)!.config"
                                             class="w-full h-full"
                                         />
@@ -495,7 +602,7 @@ onMounted(async () => {
                                                     </tr>
                                                 </thead>
                                                 <tbody class="bg-white divide-y divide-gray-200">
-                                                    <tr v-for="(row, idx) in widgetData[item.i].rows.slice(0, 10)" :key="idx">
+                                                    <tr v-for="(row, idx) in widgetData[item.i].data.slice(0, 10)" :key="idx">
                                                         <td
                                                             v-for="col in widgetData[item.i].columns"
                                                             :key="col"
@@ -512,7 +619,7 @@ onMounted(async () => {
                                         <div v-else-if="getWidgetForItem(item)?.type === 'metric'" class="flex items-center justify-center h-full">
                                             <div class="text-center">
                                                 <div class="text-4xl font-bold text-gray-900">
-                                                    {{ widgetData[item.i].rows[0]?.[widgetData[item.i].columns[0]] || 'N/A' }}
+                                                    {{ widgetData[item.i].data[0]?.[widgetData[item.i].columns[0]] || 'N/A' }}
                                                 </div>
                                                 <div class="text-sm text-muted-foreground mt-2">
                                                     {{ widgetData[item.i].columns[0] }}
@@ -531,20 +638,6 @@ onMounted(async () => {
 
                     <div v-if="widgets.length === 0" class="flex items-center justify-center h-96 text-muted-foreground">
                         Click "Add Widget" to start building your dashboard
-                    </div>
-                    
-                    <!-- Debug info -->
-                    <div class="mt-4 p-4 bg-gray-200 dark:bg-gray-700 rounded text-xs">
-                        <p>Widgets: {{ widgets.length }}</p>
-                        <p>Layout items: {{ layout.length }}</p>
-                        <details>
-                            <summary>Layout Details</summary>
-                            <pre>{{ JSON.stringify(layout, null, 2) }}</pre>
-                        </details>
-                        <details>
-                            <summary>Widget Data</summary>
-                            <pre>{{ JSON.stringify(widgetData, null, 2) }}</pre>
-                        </details>
                     </div>
                 </div>
             </div>
