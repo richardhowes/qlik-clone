@@ -13,13 +13,16 @@ interface DataItem {
     value: number;
 }
 
-interface Series {
-    name: string;
-    data: DataItem[];
+interface SeriesData {
+    categories: string[];
+    series: Array<{
+        name: string;
+        data: number[];
+    }>;
 }
 
 interface Props {
-    data: DataItem[] | Series[];
+    data: DataItem[] | SeriesData;
     title?: string;
     xAxisLabel?: string;
     yAxisLabel?: string;
@@ -38,32 +41,27 @@ const props = withDefaults(defineProps<Props>(), {
     showSymbol: true,
 });
 
-const isMultiSeries = (data: DataItem[] | Series[]): data is Series[] => {
-    return data.length > 0 && 'data' in data[0];
+const isSeriesData = (data: DataItem[] | SeriesData): data is SeriesData => {
+    return 'categories' in data && 'series' in data;
 };
 
 const option = computed<EChartsOption>(() => {
     let xAxisData: string[] = [];
     let series: any[] = [];
 
-    if (isMultiSeries(props.data)) {
-        // Multiple series
-        const allDates = new Set<string>();
-        props.data.forEach(s => {
-            s.data.forEach(item => allDates.add(item.name));
-        });
-        xAxisData = Array.from(allDates).sort();
-
-        series = props.data.map(s => ({
+    if (isSeriesData(props.data)) {
+        // Multiple series format
+        xAxisData = props.data.categories;
+        series = props.data.series.map(s => ({
             name: s.name,
             type: 'line',
-            data: s.data.map(item => item.value),
+            data: s.data,
             smooth: props.smooth,
             areaStyle: props.area ? {} : undefined,
             showSymbol: props.showSymbol,
         }));
     } else {
-        // Single series
+        // Simple format
         xAxisData = props.data.map(item => item.name);
         series = [{
             type: 'line',
@@ -82,7 +80,7 @@ const option = computed<EChartsOption>(() => {
         tooltip: {
             trigger: 'axis',
         },
-        legend: isMultiSeries(props.data) ? {
+        legend: isSeriesData(props.data) && props.data.series.length > 1 ? {
             bottom: 0,
         } : undefined,
         xAxis: {

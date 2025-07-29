@@ -14,8 +14,9 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView } from '@codemirror/view';
 import { autocompletion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { Codemirror } from 'vue-codemirror';
-import { Database, Download, Play, Save, Clock, AlertCircle } from 'lucide-vue-next';
+import { Database, Download, Play, Save, Clock, AlertCircle, BarChart2 } from 'lucide-vue-next';
 import { ref, computed, watch } from 'vue';
+import { BarChart, LineChart, PieChart, ScatterChart } from '@/components/charts';
 import axios from 'axios';
 
 interface DataSource {
@@ -90,6 +91,13 @@ const saving = ref(false);
 const result = ref<QueryResult | null>(null);
 const activeTab = ref('results');
 const queryLimit = ref(1000);
+const showVisualization = ref(false);
+const selectedChartType = ref<'bar' | 'line' | 'pie' | 'scatter'>('bar');
+const chartConfig = ref({
+    xAxis: '',
+    yAxis: '',
+    series: [] as string[],
+});
 
 // Build SQL schema for CodeMirror
 const buildSQLSchema = () => {
@@ -277,6 +285,164 @@ const formatExecutionTime = (ms: number) => {
     if (ms < 1000) return `${ms}ms`;
     return `${(ms / 1000).toFixed(2)}s`;
 };
+
+// Analyze data types
+const analyzeDataTypes = (data: any[], columns: Array<{ name: string; type: string }>) => {
+    const analysis: Record<string, { type: string; isNumeric: boolean; isDate: boolean; uniqueCount: number }> = {};
+    
+    columns.forEach(col => {
+        const values = data.map(row => row[col.name]).filter(v => v !== null && v !== undefined);
+        const uniqueValues = new Set(values);
+        
+        // Check if numeric
+        const isNumeric = values.every(v => !isNaN(Number(v)));
+        
+        // Check if date
+        const isDate = values.every(v => !isNaN(Date.parse(String(v))));
+        
+        analysis[col.name] = {
+            type: col.type,
+            isNumeric,
+            isDate,
+            uniqueCount: uniqueValues.size,
+        };
+    });
+    
+    return analysis;
+};
+
+// Suggest chart types based on data
+const suggestChartTypes = () => {
+    if (!result.value?.data || !result.value?.columns) return [];
+    
+    const analysis = analyzeDataTypes(result.value.data, result.value.columns);
+    const numericColumns = Object.keys(analysis).filter(col => analysis[col].isNumeric);
+    const categoricalColumns = Object.keys(analysis).filter(col => !analysis[col].isNumeric);
+    
+    const suggestions = [];
+    
+    // Bar chart: good for categorical + numeric
+    if (categoricalColumns.length > 0 && numericColumns.length > 0) {
+        suggestions.push('bar');
+    }
+    
+    // Line chart: good for time series or continuous numeric
+    if (numericColumns.length >= 2 || (categoricalColumns.some(col => analysis[col].isDate) && numericColumns.length > 0)) {
+        suggestions.push('line');
+    }
+    
+    // Pie chart: good for categorical + single numeric with limited categories
+    if (categoricalColumns.length > 0 && numericColumns.length > 0 && 
+        categoricalColumns.some(col => analysis[col].uniqueCount <= 10)) {
+        suggestions.push('pie');
+    }
+    
+    // Scatter: good for two numeric columns
+    if (numericColumns.length >= 2) {
+        suggestions.push('scatter');
+    }
+    
+    return suggestions;
+};
+
+// Initialize visualization
+const initializeVisualization = () => {
+    if (!result.value?.data || !result.value?.columns) return;
+    
+    showVisualization.value = true;
+    activeTab.value = 'visualization';
+    
+    const analysis = analyzeDataTypes(result.value.data, result.value.columns);
+    const numericColumns = Object.keys(analysis).filter(col => analysis[col].isNumeric);
+    const categoricalColumns = Object.keys(analysis).filter(col => !analysis[col].isNumeric);
+    
+    // Auto-select chart type
+    const suggestions = suggestChartTypes();
+    if (suggestions.length > 0) {
+        selectedChartType.value = suggestions[0] as any;
+    }
+    
+    // Auto-configure axes
+    if (selectedChartType.value === 'bar' || selectedChartType.value === 'line') {
+        chartConfig.value.xAxis = categoricalColumns[0] || numericColumns[0] || '';
+        chartConfig.value.yAxis = numericColumns[0] || '';
+        chartConfig.value.series = numericColumns.slice(0, 3);
+    } else if (selectedChartType.value === 'pie') {
+        chartConfig.value.xAxis = categoricalColumns[0] || '';
+        chartConfig.value.yAxis = numericColumns[0] || '';
+    } else if (selectedChartType.value === 'scatter') {
+        chartConfig.value.xAxis = numericColumns[0] || '';
+        chartConfig.value.yAxis = numericColumns[1] || '';
+    }
+};
+
+// Prepare chart data
+const chartData = computed(() => {
+    if (!result.value?.data || !chartConfig.value.xAxis) return null;
+    
+    if (selectedChartType.value === 'pie') {
+        // Aggregate data for pie chart
+        const aggregated: Record<string, number> = {};
+        result.value.data.forEach(row => {
+            const key = String(row[chartConfig.value.xAxis]);
+            const value = Number(row[chartConfig.value.yAxis]) || 0;
+            aggregated[key] = (aggregated[key] || 0) + value;
+        });
+        
+        return Object.entries(aggregated).map(([name, value]) => ({ name, value }));
+    } else if (selectedChartType.value === 'scatter') {
+        return result.value.data.map(row => ({
+            x: Number(row[chartConfig.value.xAxis]) || 0,
+            y: Number(row[chartConfig.value.yAxis]) || 0,
+            name: row[chartConfig.value.xAxis],
+        }));
+    } else {
+        // Bar and Line charts
+        const xValues = [...new Set(result.value.data.map(row => String(row[chartConfig.value.xAxis])))];
+        
+        if (chartConfig.value.series.length > 0) {
+            // Multiple series
+            const series = chartConfig.value.series.map(seriesName => ({
+                name: seriesName,
+                data: xValues.map(x => {
+                    const row = result.value!.data.find(r => String(r[chartConfig.value.xAxis]) === x);
+                    return row ? (Number(row[seriesName]) || 0) : 0;
+                }),
+            }));
+            
+            return {
+                categories: xValues,
+                series,
+            };
+        } else {
+            // Single series
+            return {
+                categories: xValues,
+                series: [{
+                    name: chartConfig.value.yAxis,
+                    data: xValues.map(x => {
+                        const row = result.value!.data.find(r => String(r[chartConfig.value.xAxis]) === x);
+                        return row ? (Number(row[chartConfig.value.yAxis]) || 0) : 0;
+                    }),
+                }],
+            };
+        }
+    }
+});
+
+// Available columns for chart configuration
+const availableColumns = computed(() => {
+    if (!result.value?.columns) return { all: [], numeric: [], categorical: [] };
+    
+    const analysis = analyzeDataTypes(result.value.data || [], result.value.columns);
+    
+    return {
+        all: result.value.columns.map(col => col.name),
+        numeric: Object.keys(analysis).filter(col => analysis[col].isNumeric),
+        categorical: Object.keys(analysis).filter(col => !analysis[col].isNumeric),
+    };
+});
+
 </script>
 
 <template>
@@ -401,14 +567,25 @@ const formatExecutionTime = (ms: number) => {
                                 <div v-if="result.success" class="flex items-center gap-4 text-sm text-muted-foreground">
                                     <span>{{ result.row_count }} rows</span>
                                     <span>{{ formatExecutionTime(result.execution_time || 0) }}</span>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        @click="exportResults"
-                                        :disabled="!result.data || result.data.length === 0"
-                                    >
-                                        <Download class="h-4 w-4" />
-                                    </Button>
+                                    <div class="flex gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            @click="initializeVisualization"
+                                            :disabled="!result.data || result.data.length === 0"
+                                        >
+                                            <BarChart2 class="h-4 w-4 mr-1" />
+                                            Visualize
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            @click="exportResults"
+                                            :disabled="!result.data || result.data.length === 0"
+                                        >
+                                            <Download class="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         </CardHeader>
@@ -423,49 +600,187 @@ const formatExecutionTime = (ms: number) => {
                                 </div>
                             </div>
 
-                            <!-- Results Table -->
-                            <div v-else-if="result.data && result.data.length > 0" class="relative">
-                                <div class="overflow-auto max-h-[600px] border rounded scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
-                                    <table class="w-full border-collapse min-w-max">
-                                        <thead class="sticky top-0 z-10">
-                                            <tr class="border-b bg-background">
-                                                <th
-                                                    v-for="column in result.columns"
-                                                    :key="column.name"
-                                                    class="px-4 py-2 text-left text-sm font-medium whitespace-nowrap border-b"
-                                                >
-                                                    {{ column.name }}
-                                                    <span class="text-xs text-muted-foreground ml-1">
-                                                        ({{ column.type }})
-                                                    </span>
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr
-                                                v-for="(row, index) in result.data"
-                                                :key="index"
-                                                class="border-b hover:bg-muted/50"
-                                            >
-                                                <td
-                                                    v-for="column in result.columns"
-                                                    :key="column.name"
-                                                    class="px-4 py-2 text-sm whitespace-nowrap"
-                                                >
-                                                    {{ row[column.name] }}
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <div v-if="result.limited" class="mt-4 text-center text-sm text-muted-foreground">
-                                    Results limited to {{ queryLimit.toLocaleString() }} rows
-                                </div>
-                            </div>
+                            <!-- Success State with Tabs -->
+                            <div v-else-if="result.data">
+                                <TabsRoot v-model="activeTab" v-if="showVisualization">
+                                    <TabsList class="mb-4">
+                                        <TabsTrigger value="results">Results Table</TabsTrigger>
+                                        <TabsTrigger value="visualization">Visualization</TabsTrigger>
+                                    </TabsList>
 
-                            <!-- Empty Results -->
-                            <div v-else class="text-center py-8 text-muted-foreground">
-                                Query returned no results
+                                    <!-- Results Tab -->
+                                    <TabsContent value="results">
+                                        <div v-if="result.data.length > 0" class="relative">
+                                            <div class="overflow-auto max-h-[600px] border rounded scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+                                                <table class="w-full border-collapse min-w-max">
+                                                    <thead class="sticky top-0 z-10">
+                                                        <tr class="border-b bg-background">
+                                                            <th
+                                                                v-for="column in result.columns"
+                                                                :key="column.name"
+                                                                class="px-4 py-2 text-left text-sm font-medium whitespace-nowrap border-b"
+                                                            >
+                                                                {{ column.name }}
+                                                                <span class="text-xs text-muted-foreground ml-1">
+                                                                    ({{ column.type }})
+                                                                </span>
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr
+                                                            v-for="(row, index) in result.data"
+                                                            :key="index"
+                                                            class="border-b hover:bg-muted/50"
+                                                        >
+                                                            <td
+                                                                v-for="column in result.columns"
+                                                                :key="column.name"
+                                                                class="px-4 py-2 text-sm whitespace-nowrap"
+                                                            >
+                                                                {{ row[column.name] }}
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div v-if="result.limited" class="mt-4 text-center text-sm text-muted-foreground">
+                                                Results limited to {{ queryLimit.toLocaleString() }} rows
+                                            </div>
+                                        </div>
+                                        <div v-else class="text-center py-8 text-muted-foreground">
+                                            Query returned no results
+                                        </div>
+                                    </TabsContent>
+
+                                    <!-- Visualization Tab -->
+                                    <TabsContent value="visualization" class="space-y-4">
+                                        <!-- Chart Type Selection -->
+                                        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                                            <div>
+                                                <Label>Chart Type</Label>
+                                                <Select v-model="selectedChartType">
+                                                    <SelectTrigger>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="bar">Bar Chart</SelectItem>
+                                                        <SelectItem value="line">Line Chart</SelectItem>
+                                                        <SelectItem value="pie">Pie Chart</SelectItem>
+                                                        <SelectItem value="scatter">Scatter Plot</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <!-- X-Axis Selection -->
+                                            <div>
+                                                <Label>X-Axis</Label>
+                                                <Select v-model="chartConfig.xAxis">
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select column" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem 
+                                                            v-for="col in availableColumns.all" 
+                                                            :key="col" 
+                                                            :value="col"
+                                                        >
+                                                            {{ col }}
+                                                        </SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <!-- Y-Axis Selection -->
+                                            <div>
+                                                <Label>Y-Axis</Label>
+                                                <Select v-model="chartConfig.yAxis">
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select column" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem 
+                                                            v-for="col in availableColumns.numeric" 
+                                                            :key="col" 
+                                                            :value="col"
+                                                        >
+                                                            {{ col }}
+                                                        </SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+
+                                        <!-- Chart Display -->
+                                        <div v-if="chartData" class="mt-6">
+                                            <BarChart 
+                                                v-if="selectedChartType === 'bar'" 
+                                                :data="chartData"
+                                                height="400px"
+                                            />
+                                            <LineChart 
+                                                v-else-if="selectedChartType === 'line' && chartData.categories" 
+                                                :data="chartData"
+                                                height="400px"
+                                            />
+                                            <PieChart 
+                                                v-else-if="selectedChartType === 'pie'" 
+                                                :data="chartData"
+                                                height="400px"
+                                            />
+                                            <ScatterChart 
+                                                v-else-if="selectedChartType === 'scatter'" 
+                                                :data="chartData"
+                                                height="400px"
+                                            />
+                                        </div>
+                                    </TabsContent>
+                                </TabsRoot>
+
+                                <!-- No tabs mode - just show table -->
+                                <div v-else>
+                                    <div v-if="result.data.length > 0" class="relative">
+                                        <div class="overflow-auto max-h-[600px] border rounded scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+                                            <table class="w-full border-collapse min-w-max">
+                                                <thead class="sticky top-0 z-10">
+                                                    <tr class="border-b bg-background">
+                                                        <th
+                                                            v-for="column in result.columns"
+                                                            :key="column.name"
+                                                            class="px-4 py-2 text-left text-sm font-medium whitespace-nowrap border-b"
+                                                        >
+                                                            {{ column.name }}
+                                                            <span class="text-xs text-muted-foreground ml-1">
+                                                                ({{ column.type }})
+                                                            </span>
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr
+                                                        v-for="(row, index) in result.data"
+                                                        :key="index"
+                                                        class="border-b hover:bg-muted/50"
+                                                    >
+                                                        <td
+                                                            v-for="column in result.columns"
+                                                            :key="column.name"
+                                                            class="px-4 py-2 text-sm whitespace-nowrap"
+                                                        >
+                                                            {{ row[column.name] }}
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div v-if="result.limited" class="mt-4 text-center text-sm text-muted-foreground">
+                                            Results limited to {{ queryLimit.toLocaleString() }} rows
+                                        </div>
+                                    </div>
+                                    <div v-else class="text-center py-8 text-muted-foreground">
+                                        Query returned no results
+                                    </div>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>

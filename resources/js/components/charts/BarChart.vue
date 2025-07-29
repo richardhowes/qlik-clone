@@ -13,8 +13,16 @@ interface DataItem {
     value: number;
 }
 
+interface SeriesData {
+    categories: string[];
+    series: Array<{
+        name: string;
+        data: number[];
+    }>;
+}
+
 interface Props {
-    data: DataItem[];
+    data: DataItem[] | SeriesData;
     title?: string;
     xAxisLabel?: string;
     yAxisLabel?: string;
@@ -32,9 +40,47 @@ const props = withDefaults(defineProps<Props>(), {
     showValues: true,
 });
 
+const isSeriesData = (data: DataItem[] | SeriesData): data is SeriesData => {
+    return 'categories' in data && 'series' in data;
+};
+
 const option = computed<EChartsOption>(() => {
-    const xAxisData = props.data.map(item => item.name);
-    const seriesData = props.data.map(item => item.value);
+    let xAxisData: string[] = [];
+    let series: any[] = [];
+
+    if (isSeriesData(props.data)) {
+        // Multiple series format
+        xAxisData = props.data.categories;
+        series = props.data.series.map(s => ({
+            type: 'bar',
+            name: s.name,
+            data: s.data,
+            label: {
+                show: props.showValues,
+                position: props.horizontal ? 'right' : 'top',
+            },
+            itemStyle: {
+                color: props.color,
+            },
+        }));
+    } else {
+        // Simple format
+        xAxisData = props.data.map(item => item.name);
+        const seriesData = props.data.map(item => item.value);
+        series = [
+            {
+                type: 'bar',
+                data: seriesData,
+                label: {
+                    show: props.showValues,
+                    position: props.horizontal ? 'right' : 'top',
+                },
+                itemStyle: {
+                    color: props.color,
+                },
+            },
+        ];
+    }
 
     const baseOption: EChartsOption = {
         title: props.title ? {
@@ -47,6 +93,9 @@ const option = computed<EChartsOption>(() => {
                 type: 'shadow',
             },
         },
+        legend: isSeriesData(props.data) && props.data.series.length > 1 ? {
+            bottom: 0,
+        } : undefined,
         xAxis: {
             type: props.horizontal ? 'value' : 'category',
             data: props.horizontal ? undefined : xAxisData,
@@ -60,19 +109,7 @@ const option = computed<EChartsOption>(() => {
             data: props.horizontal ? xAxisData : undefined,
             name: props.yAxisLabel,
         },
-        series: [
-            {
-                type: 'bar',
-                data: seriesData,
-                label: {
-                    show: props.showValues,
-                    position: props.horizontal ? 'right' : 'top',
-                },
-                itemStyle: {
-                    color: props.color,
-                },
-            },
-        ],
+        series: series,
     };
 
     return baseOption;
