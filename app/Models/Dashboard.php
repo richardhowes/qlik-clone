@@ -31,8 +31,8 @@ class Dashboard extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function charts(): HasMany
+    public function widgets(): HasMany
     {
-        return $this->hasMany(Chart::class);
+        return $this->hasMany(DashboardWidget::class)->orderBy('order');
     }
 }

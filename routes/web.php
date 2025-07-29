@@ -18,6 +18,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // BI Tool Routes
     Route::resource('dashboards', DashboardController::class);
     Route::post('dashboards/{dashboard}/favorite', [DashboardController::class, 'toggleFavorite'])->name('dashboards.favorite');
+    Route::post('dashboards/{dashboard}/widgets', [DashboardController::class, 'addWidget'])->name('dashboards.widgets.store');
+    Route::put('dashboards/{dashboard}/widgets/{widget}', [DashboardController::class, 'updateWidget'])->name('dashboards.widgets.update');
+    Route::delete('dashboards/{dashboard}/widgets/{widget}', [DashboardController::class, 'deleteWidget'])->name('dashboards.widgets.destroy');
+    Route::put('dashboards/{dashboard}/widgets/reorder', [DashboardController::class, 'reorderWidgets'])->name('dashboards.widgets.reorder');
     
     Route::resource('data-sources', DataSourceController::class);
     Route::post('data-sources/{data_source}/test', [DataSourceController::class, 'test'])->name('data-sources.test');
