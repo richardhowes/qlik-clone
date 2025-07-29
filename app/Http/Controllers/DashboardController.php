@@ -47,8 +47,10 @@ class DashboardController extends Controller
     {
         $this->authorize('view', $dashboard);
 
+        $dashboard->load(['widgets.savedQuery.dataSource']);
+
         return Inertia::render('dashboards/Show', [
-            'dashboard' => $dashboard->load('widgets.savedQuery'),
+            'dashboard' => $dashboard,
         ]);
     }
 

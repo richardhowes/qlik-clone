@@ -294,8 +294,16 @@ const executeQuery = async (widget: Widget) => {
         }
 
         console.log('Executing query for widget:', widget.id, 'Query:', query);
+        
+        // Get the data source ID from the query
+        const dataSourceId = query.data_source?.id || query.data_source_id;
+        if (!dataSourceId) {
+            console.error('No data source ID found for query:', query);
+            return null;
+        }
+        
         const response = await axios.post(
-            route('query.execute', query.data_source.id),
+            route('query.execute', dataSourceId),
             {
                 sql: query.sql,
                 limit: 1000,
