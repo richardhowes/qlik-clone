@@ -28,6 +28,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('data-source-config-fields', [DataSourceController::class, 'getConfigFields'])->name('data-sources.config-fields');
     
     // Query routes
+    Route::get('queries', [QueryController::class, 'index'])->name('queries.index');
+    Route::get('data-sources/{data_source}/queries', [QueryController::class, 'index'])->name('data-sources.queries.index');
     Route::get('data-sources/{data_source}/query', [QueryController::class, 'editor'])->name('query.editor');
     Route::get('data-sources/{data_source}/query/{query}', [QueryController::class, 'editor'])->name('query.editor.saved');
     Route::post('data-sources/{data_source}/query/execute', [QueryController::class, 'execute'])->name('query.execute');

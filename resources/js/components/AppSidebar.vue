@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { BarChart3, BookOpen, Clock, FolderOpen, Home, Sparkles, Star } from 'lucide-vue-next';
+import { BarChart3, BookOpen, Clock, Database, FolderOpen, Home, LayoutDashboard, Search, Sparkles, Star, FileCode } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
 
 const mainNavItems: NavItem[] = [
@@ -25,14 +25,32 @@ const mainNavItems: NavItem[] = [
         icon: Home,
     },
     {
+        title: 'Dashboards',
+        href: '/dashboards',
+        icon: LayoutDashboard,
+    },
+    {
+        title: 'Data Sources',
+        href: '/data-sources',
+        icon: Database,
+    },
+    {
+        title: 'Queries',
+        href: '/queries',
+        icon: FileCode,
+    },
+    {
+        title: 'Browse',
+        href: '/browse',
+        icon: Search,
+    },
+];
+
+const analyticsNavItems: NavItem[] = [
+    {
         title: 'Insights',
         href: '/insights',
         icon: Sparkles,
-    },
-    {
-        title: 'Favorites',
-        href: '/favorites',
-        icon: Star,
     },
     {
         title: 'Collections',
@@ -40,9 +58,9 @@ const mainNavItems: NavItem[] = [
         icon: FolderOpen,
     },
     {
-        title: 'Browse',
-        href: '/browse',
-        icon: BarChart3,
+        title: 'Favorites',
+        href: '/favorites',
+        icon: Star,
     },
 ];
 
@@ -70,7 +88,14 @@ const footerNavItems: NavItem[] = [
         </SidebarHeader>
 
         <SidebarContent>
+            <!-- Main Navigation -->
             <NavMain :items="mainNavItems" />
+
+            <!-- Analytics Section -->
+            <SidebarGroup class="mt-4">
+                <SidebarGroupLabel>Analytics</SidebarGroupLabel>
+                <NavMain :items="analyticsNavItems" />
+            </SidebarGroup>
 
             <!-- Recents Section -->
             <SidebarGroup class="mt-4 px-2 py-0">

@@ -9,7 +9,7 @@ import { BarChart, LineChart, PieChart, ScatterChart } from '@/components/charts
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
-import { GridLayout, GridItem } from 'vue3-grid-layout-next';
+import { GridLayout, GridItem } from 'vue-grid-layout';
 import { Save, Plus, Settings, Trash2, GripVertical } from 'lucide-vue-next';
 import { ref, computed, onMounted, nextTick } from 'vue';
 import axios from 'axios';
@@ -45,6 +45,7 @@ interface Widget {
     };
     order: number;
     query?: Query;
+    savedQuery?: Query;
 }
 
 interface Dashboard {
@@ -102,7 +103,7 @@ const newWidget = ref<Partial<Widget>>({
 // Grid settings
 const colNum = 12;
 const rowHeight = 80;
-const maxRows = 10;
+const maxRows = 20;
 
 
 // Save dashboard
@@ -168,6 +169,11 @@ const addWidget = async () => {
 
         const widget = response.data.widget;
         console.log('Widget created:', widget);
+        
+        // Add query info to widget
+        if (widget.query_id && !widget.query) {
+            widget.query = props.availableQueries.find(q => q.id === widget.query_id);
+        }
         
         // Add widget to list
         widgets.value.push(widget);
@@ -281,9 +287,13 @@ const executeQuery = async (widget: Widget) => {
     if (!widget.query_id) return null;
 
     try {
-        const query = props.availableQueries.find(q => q.id === widget.query_id);
-        if (!query) return null;
+        const query = widget.savedQuery || widget.query || props.availableQueries.find(q => q.id === widget.query_id);
+        if (!query) {
+            console.error('Query not found for widget:', widget);
+            return null;
+        }
 
+        console.log('Executing query for widget:', widget.id, 'Query:', query);
         const response = await axios.post(
             route('query.execute', query.data_source.id),
             {
@@ -302,7 +312,6 @@ const executeQuery = async (widget: Widget) => {
 // Helper to find widget for layout item
 const getWidgetForItem = (item: any) => {
     const widget = widgets.value.find(w => String(w.id) === item.i);
-    console.log('Getting widget for item:', item.i, 'found:', widget);
     return widget;
 };
 
@@ -318,6 +327,7 @@ const loadWidgetData = async (widget: Widget) => {
     
     try {
         const data = await executeQuery(widget);
+        console.log(`Loaded data for widget ${widgetKey}:`, data);
         if (data) {
             widgetData.value[widgetKey] = data;
         }
@@ -331,6 +341,13 @@ const loadWidgetData = async (widget: Widget) => {
 // Load data for all widgets on mount
 onMounted(async () => {
     widgets.value = props.dashboard.widgets || [];
+    
+    // Ensure each widget has a query property
+    widgets.value.forEach((widget) => {
+        if (widget.query_id && !widget.savedQuery && !widget.query) {
+            widget.query = props.availableQueries.find(q => q.id === widget.query_id);
+        }
+    });
     
     // Create proper layout items with correct structure
     const layoutItems = widgets.value.map((widget, index) => ({
@@ -349,7 +366,7 @@ onMounted(async () => {
     // Load data for all widgets
     for (const widget of widgets.value) {
         if (widget.query_id) {
-            loadWidgetData(widget);
+            await loadWidgetData(widget);
         }
     }
 });
@@ -383,7 +400,7 @@ onMounted(async () => {
 
             <!-- Grid Layout -->
             <div class="flex-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-4 overflow-auto">
-                <div class="min-h-[800px] relative">
+                <div class="min-h-[800px] relative" style="position: relative;">
                     <GridLayout
                         :layout="layout"
                         :col-num="colNum"
@@ -395,9 +412,8 @@ onMounted(async () => {
                         :vertical-compact="true"
                         :margin="[10, 10]"
                         :use-css-transforms="true"
+                        :auto-size="true"
                         @layout-updated="layoutUpdated"
-                        @drag-start="isDragging = true"
-                        @drag-stop="isDragging = false"
                     >
                         <GridItem
                             v-for="item in layout"
@@ -407,10 +423,10 @@ onMounted(async () => {
                             :w="item.w"
                             :h="item.h"
                             :i="item.i"
-                            class="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm"
+                            class="vue-grid-item"
                         >
                         <div
-                            class="h-full flex flex-col"
+                            class="h-full flex flex-col bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm overflow-hidden"
                         >
                             <div class="flex items-center justify-between p-3 border-b">
                                 <div class="flex items-center gap-2">
@@ -513,7 +529,14 @@ onMounted(async () => {
                     <div class="mt-4 p-4 bg-gray-200 dark:bg-gray-700 rounded text-xs">
                         <p>Widgets: {{ widgets.length }}</p>
                         <p>Layout items: {{ layout.length }}</p>
-                        <pre>{{ JSON.stringify(layout, null, 2) }}</pre>
+                        <details>
+                            <summary>Layout Details</summary>
+                            <pre>{{ JSON.stringify(layout, null, 2) }}</pre>
+                        </details>
+                        <details>
+                            <summary>Widget Data</summary>
+                            <pre>{{ JSON.stringify(widgetData, null, 2) }}</pre>
+                        </details>
                     </div>
                 </div>
             </div>
@@ -669,20 +692,13 @@ onMounted(async () => {
 }
 
 /* Vue Grid Layout core styles */
-.vue-grid-layout {
-    position: relative;
-    transition: height 200ms ease;
-}
-
 .vue-grid-item {
     transition: all 200ms ease;
     transition-property: left, top, right;
-    position: absolute;
-    box-sizing: border-box;
 }
 
 .vue-grid-item.vue-grid-placeholder {
-    background: red;
+    background: #3b82f6;
     opacity: 0.2;
     transition-duration: 100ms;
     z-index: 2;
@@ -726,14 +742,29 @@ onMounted(async () => {
     border-bottom: 2px solid rgba(0, 0, 0, 0.4);
 }
 
-/* Make grid area more visible */
-.vue-grid-layout:empty::after {
-    content: "Drop widgets here";
+.vue-resizable {
+    position: relative;
+}
+
+.vue-resizable-handle {
+    z-index: 5;
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: rgba(0, 0, 0, 0.2);
-    font-size: 1.5rem;
+    width: 20px;
+    height: 20px;
+    bottom: 0;
+    right: 0;
+    background: url('data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/Pg08IS0tIEdlbmVyYXRvcjogQWRvYmUgRmlyZXdvcmtzIENTNiwgRXhwb3J0IFNWRyBFeHRlbnNpb24gYnkgQWFyb24gQmVhbGwgKGh0dHA6Ly9maXJld29ya3MuYWJlYWxsLmNvbSkgLiBWZXJzaW9uOiAwLjYuMSAgLS0+DTwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+DTxzdmcgaWQ9IlVudGl0bGVkLVBhZ2UlMjAxIiB2aWV3Qm94PSIwIDAgNiA2IiBzdHlsZT0iYmFja2dyb3VuZC1jb2xvcjojZmZmZmZmMDAiIHZlcnNpb249IjEuMSINCXhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHhtbDpzcGFjZT0icHJlc2VydmUiDQl4PSIwcHgiIHk9IjBweCIgd2lkdGg9IjZweCIgaGVpZ2h0PSI2cHgiDT4NCTxnIG9wYWNpdHk9IjAuMzAyIj4NCQk8cGF0aCBkPSJNIDYgNiBMIDAgNiBMIDAgNC4yIEwgNCA0LjIgTCA0LjIgNC4yIEwgNC4yIDAgTCA2IDAgTCA2IDYgTCA2IDYgWiIgZmlsbD0iIzAwMDAwMCIvPg0JPC9nPg08L3N2Zz4=');
+    background-position: bottom right;
+    padding: 0 3px 3px 0;
+    background-repeat: no-repeat;
+    background-origin: content-box;
+    box-sizing: border-box;
+    cursor: se-resize;
+}
+
+/* Make sure widget content doesn't overflow */
+.vue-grid-item > div {
+    height: 100%;
+    width: 100%;
 }
 </style>

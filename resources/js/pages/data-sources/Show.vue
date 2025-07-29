@@ -6,7 +6,7 @@ import { Tabs as TabsRoot, TabsContent, TabsList, TabsTrigger } from '@/componen
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { AlertCircle, CheckCircle, Database, Edit, RefreshCw, Table, XCircle } from 'lucide-vue-next';
+import { AlertCircle, CheckCircle, Database, Edit, RefreshCw, Table, XCircle, FileCode } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 
 interface Schema {
@@ -138,10 +138,16 @@ const selectedTableData = computed(() => {
                             Edit
                         </Link>
                     </Button>
+                    <Button as-child variant="outline" v-if="dataSource.status === 'active'">
+                        <Link :href="route('data-sources.queries.index', dataSource.id)">
+                            <FileCode class="mr-2 h-4 w-4" />
+                            Saved Queries
+                        </Link>
+                    </Button>
                     <Button as-child v-if="dataSource.status === 'active'">
                         <Link :href="route('query.editor', dataSource.id)">
                             <Database class="mr-2 h-4 w-4" />
-                            Query Editor
+                            New Query
                         </Link>
                     </Button>
                 </div>

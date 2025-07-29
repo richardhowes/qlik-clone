@@ -61,8 +61,10 @@ class DashboardController extends Controller
             ->latest()
             ->get();
             
+        $dashboard->load(['widgets.savedQuery.dataSource']);
+            
         return Inertia::render('dashboards/Edit', [
-            'dashboard' => $dashboard->load('widgets.savedQuery'),
+            'dashboard' => $dashboard,
             'availableQueries' => $queries,
         ]);
     }
@@ -123,7 +125,7 @@ class DashboardController extends Controller
         ]);
 
         return response()->json([
-            'widget' => $widget->load('savedQuery'),
+            'widget' => $widget->load('savedQuery.dataSource'),
         ]);
     }
 
@@ -144,7 +146,7 @@ class DashboardController extends Controller
         $widget->update($validated);
 
         return response()->json([
-            'widget' => $widget->load('savedQuery'),
+            'widget' => $widget->load('savedQuery.dataSource'),
         ]);
     }
 

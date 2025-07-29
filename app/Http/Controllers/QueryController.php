@@ -18,17 +18,29 @@ class QueryController extends Controller
         $this->queryService = $queryService;
     }
 
-    public function index(DataSource $dataSource): Response
+    public function index(DataSource $dataSource = null): Response
     {
-        $this->authorize('view', $dataSource);
+        if ($dataSource) {
+            $this->authorize('view', $dataSource);
 
-        $queries = Query::where('data_source_id', $dataSource->id)
-            ->where('user_id', auth()->id())
+            $queries = Query::where('data_source_id', $dataSource->id)
+                ->where('user_id', auth()->id())
+                ->latest()
+                ->paginate(20);
+
+            return Inertia::render('query/Index', [
+                'dataSource' => $dataSource,
+                'queries' => $queries,
+            ]);
+        }
+
+        // Show all queries for the user
+        $queries = Query::where('user_id', auth()->id())
+            ->with('dataSource')
             ->latest()
             ->paginate(20);
 
         return Inertia::render('query/Index', [
-            'dataSource' => $dataSource,
             'queries' => $queries,
         ]);
     }
