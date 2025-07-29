@@ -198,6 +198,17 @@ const deleteDataSource = (dataSource: DataSource) => {
                             </p>
                             <div class="flex gap-2">
                                 <Button
+                                    v-if="source.status === 'active'"
+                                    variant="outline"
+                                    size="sm"
+                                    as-child
+                                >
+                                    <Link :href="route('query.editor', source.id)">
+                                        <Database class="mr-2 h-4 w-4" />
+                                        Query
+                                    </Link>
+                                </Button>
+                                <Button
                                     variant="outline"
                                     size="sm"
                                     @click="testConnection(source)"

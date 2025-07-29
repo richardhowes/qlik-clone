@@ -132,10 +132,16 @@ const selectedTableData = computed(() => {
                         />
                         Test Connection
                     </Button>
-                    <Button as-child>
+                    <Button as-child variant="outline">
                         <Link :href="route('data-sources.edit', dataSource.id)">
                             <Edit class="mr-2 h-4 w-4" />
                             Edit
+                        </Link>
+                    </Button>
+                    <Button as-child v-if="dataSource.status === 'active'">
+                        <Link :href="route('query.editor', dataSource.id)">
+                            <Database class="mr-2 h-4 w-4" />
+                            Query Editor
                         </Link>
                     </Button>
                 </div>

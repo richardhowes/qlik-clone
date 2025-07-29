@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DataSourceController;
+use App\Http\Controllers\QueryController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -21,6 +22,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('data-sources', DataSourceController::class);
     Route::post('data-sources/{data_source}/test', [DataSourceController::class, 'test'])->name('data-sources.test');
     Route::get('data-source-config-fields', [DataSourceController::class, 'getConfigFields'])->name('data-sources.config-fields');
+    
+    // Query routes
+    Route::get('data-sources/{data_source}/query', [QueryController::class, 'editor'])->name('query.editor');
+    Route::get('data-sources/{data_source}/query/{query}', [QueryController::class, 'editor'])->name('query.editor.saved');
+    Route::post('data-sources/{data_source}/query/execute', [QueryController::class, 'execute'])->name('query.execute');
+    Route::post('data-sources/{data_source}/query/save', [QueryController::class, 'save'])->name('query.save');
+    Route::delete('queries/{query}', [QueryController::class, 'destroy'])->name('query.destroy');
 
     Route::get('insights', function () {
         return Inertia::render('Insights');
