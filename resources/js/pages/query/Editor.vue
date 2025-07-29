@@ -331,8 +331,9 @@ const formatExecutionTime = (ms: number) => {
                                 :key="q.id"
                                 @click="loadQuery(q)"
                                 class="w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors"
+                                :class="{ 'opacity-60': !q.name }"
                             >
-                                <div class="font-medium text-sm">{{ q.name }}</div>
+                                <div class="font-medium text-sm">{{ q.name || 'Unnamed Query' }}</div>
                                 <div class="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                                     <Clock class="h-3 w-3" />
                                     {{ new Date(q.created_at).toLocaleDateString() }}
@@ -345,7 +346,7 @@ const formatExecutionTime = (ms: number) => {
                 <!-- Right Panel - Editor and Results -->
                 <div class="lg:col-span-3 space-y-4">
                     <!-- Query Name -->
-                    <Card v-if="queryName || query">
+                    <Card>
                         <CardContent class="pt-6">
                             <div class="space-y-2">
                                 <Label for="query-name">Query Name</Label>

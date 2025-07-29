@@ -50,9 +50,10 @@ class QueryController extends Controller
             'schema' => $schema,
             'recentQueries' => Query::where('data_source_id', $dataSource->id)
                 ->where('user_id', auth()->id())
+                ->whereNotNull('name')
                 ->latest()
                 ->limit(10)
-                ->get(['id', 'name', 'created_at']),
+                ->get(['id', 'name', 'sql', 'created_at']),
         ]);
     }
 
@@ -81,19 +82,7 @@ class QueryController extends Controller
             $validated['limit'] ?? 1000
         );
 
-        // Save successful queries to history
-        if ($result['success']) {
-            $this->queryService->saveQuery([
-                'user_id' => auth()->id(),
-                'data_source_id' => $dataSource->id,
-                'sql' => $validated['sql'],
-                'result_metadata' => [
-                    'columns' => $result['columns'],
-                ],
-                'execution_time' => $result['execution_time'],
-                'row_count' => $result['row_count'],
-            ]);
-        }
+        // Don't auto-save queries - only save when explicitly requested via the save endpoint
 
         return response()->json($result);
     }
