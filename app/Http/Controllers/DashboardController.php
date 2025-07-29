@@ -86,6 +86,10 @@ class DashboardController extends Controller
             'slug' => Str::slug($validated['name']),
         ]);
 
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'dashboard' => $dashboard]);
+        }
+
         return redirect()->route('dashboards.show', $dashboard);
     }
 

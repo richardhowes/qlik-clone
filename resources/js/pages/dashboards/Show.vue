@@ -173,12 +173,15 @@ const getGridStyle = (widget: Widget) => {
     const cellWidth = 100 / 12; // 12 columns
     const cellHeight = 80; // 80px per row
     
+    // Ensure layout exists with default values
+    const layout = widget.layout || { x: 0, y: 0, w: 4, h: 4 };
+    
     return {
         position: 'absolute',
-        left: `${widget.layout.x * cellWidth}%`,
-        top: `${widget.layout.y * cellHeight}px`,
-        width: `${widget.layout.w * cellWidth}%`,
-        height: `${widget.layout.h * cellHeight}px`,
+        left: `${layout.x * cellWidth}%`,
+        top: `${layout.y * cellHeight}px`,
+        width: `${layout.w * cellWidth}%`,
+        height: `${layout.h * cellHeight}px`,
         padding: '0.5rem',
     };
 };

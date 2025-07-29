@@ -110,6 +110,8 @@ const maxRows = 20;
 const saveDashboard = async () => {
     saving.value = true;
     try {
+        console.log('Saving dashboard with layout:', layout.value);
+        
         await axios.put(route('dashboards.update', props.dashboard.id), {
             name: props.dashboard.name,
             description: props.dashboard.description,
@@ -124,8 +126,10 @@ const saveDashboard = async () => {
             const layoutItem = layout.value.find(item => 
                 String(widget.id) === item.i
             );
+            console.log(`Saving widget ${widget.id} with layout:`, layoutItem);
+            
             if (layoutItem && widget.id) {
-                await axios.put(
+                const response = await axios.put(
                     route('dashboards.widgets.update', [props.dashboard.id, widget.id]),
                     {
                         layout: {
@@ -133,10 +137,10 @@ const saveDashboard = async () => {
                             y: layoutItem.y,
                             w: layoutItem.w,
                             h: layoutItem.h,
-                            i: layoutItem.i,
                         },
                     }
                 );
+                console.log(`Widget ${widget.id} update response:`, response.data);
             }
         }
 
