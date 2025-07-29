@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs as TabsRoot, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
@@ -88,6 +89,7 @@ const executing = ref(false);
 const saving = ref(false);
 const result = ref<QueryResult | null>(null);
 const activeTab = ref('results');
+const queryLimit = ref(1000);
 
 // Build SQL schema for CodeMirror
 const buildSQLSchema = () => {
@@ -198,7 +200,7 @@ const executeQuery = async () => {
     try {
         const response = await axios.post(route('query.execute', props.dataSource.id), {
             sql: sqlQuery.value,
-            limit: 1000,
+            limit: queryLimit.value,
         });
         
         result.value = response.data;
@@ -359,7 +361,24 @@ const formatExecutionTime = (ms: number) => {
                     <!-- SQL Editor -->
                     <Card>
                         <CardHeader>
-                            <CardTitle class="text-base">SQL Query</CardTitle>
+                            <div class="flex items-center justify-between">
+                                <CardTitle class="text-base">SQL Query</CardTitle>
+                                <div class="flex items-center gap-2">
+                                    <Label for="limit" class="text-sm">Limit:</Label>
+                                    <Select :model-value="String(queryLimit)" @update:model-value="(value) => queryLimit = parseInt(value)">
+                                        <SelectTrigger id="limit" class="w-[120px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="100">100 rows</SelectItem>
+                                            <SelectItem value="500">500 rows</SelectItem>
+                                            <SelectItem value="1000">1,000 rows</SelectItem>
+                                            <SelectItem value="5000">5,000 rows</SelectItem>
+                                            <SelectItem value="10000">10,000 rows</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <Codemirror
@@ -404,40 +423,42 @@ const formatExecutionTime = (ms: number) => {
                             </div>
 
                             <!-- Results Table -->
-                            <div v-else-if="result.data && result.data.length > 0" class="overflow-x-auto">
-                                <table class="w-full border-collapse">
-                                    <thead>
-                                        <tr class="border-b">
-                                            <th
-                                                v-for="column in result.columns"
-                                                :key="column.name"
-                                                class="px-4 py-2 text-left text-sm font-medium"
+                            <div v-else-if="result.data && result.data.length > 0" class="relative">
+                                <div class="overflow-auto max-h-[600px] border rounded scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+                                    <table class="w-full border-collapse min-w-max">
+                                        <thead class="sticky top-0 z-10">
+                                            <tr class="border-b bg-background">
+                                                <th
+                                                    v-for="column in result.columns"
+                                                    :key="column.name"
+                                                    class="px-4 py-2 text-left text-sm font-medium whitespace-nowrap border-b"
+                                                >
+                                                    {{ column.name }}
+                                                    <span class="text-xs text-muted-foreground ml-1">
+                                                        ({{ column.type }})
+                                                    </span>
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr
+                                                v-for="(row, index) in result.data"
+                                                :key="index"
+                                                class="border-b hover:bg-muted/50"
                                             >
-                                                {{ column.name }}
-                                                <span class="text-xs text-muted-foreground ml-1">
-                                                    ({{ column.type }})
-                                                </span>
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr
-                                            v-for="(row, index) in result.data"
-                                            :key="index"
-                                            class="border-b hover:bg-muted/50"
-                                        >
-                                            <td
-                                                v-for="column in result.columns"
-                                                :key="column.name"
-                                                class="px-4 py-2 text-sm"
-                                            >
-                                                {{ row[column.name] }}
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                                                <td
+                                                    v-for="column in result.columns"
+                                                    :key="column.name"
+                                                    class="px-4 py-2 text-sm whitespace-nowrap"
+                                                >
+                                                    {{ row[column.name] }}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
                                 <div v-if="result.limited" class="mt-4 text-center text-sm text-muted-foreground">
-                                    Results limited to 1,000 rows
+                                    Results limited to {{ queryLimit.toLocaleString() }} rows
                                 </div>
                             </div>
 
@@ -452,3 +473,43 @@ const formatExecutionTime = (ms: number) => {
         </div>
     </AppLayout>
 </template>
+
+<style scoped>
+/* Custom scrollbar styles for better visibility */
+.overflow-auto::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.overflow-auto::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+/* Dark mode scrollbar */
+.dark .overflow-auto::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.dark .overflow-auto::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.dark .overflow-auto::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+/* Ensure both scrollbars are always visible when content overflows */
+.overflow-auto {
+    overflow: auto !important;
+}
+</style>
