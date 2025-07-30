@@ -18,7 +18,7 @@ class QueryController extends Controller
         $this->queryService = $queryService;
     }
 
-    public function index(DataSource $dataSource = null): Response
+    public function index(?DataSource $dataSource = null): Response
     {
         if ($dataSource) {
             $this->authorize('view', $dataSource);
@@ -45,10 +45,10 @@ class QueryController extends Controller
         ]);
     }
 
-    public function editor(DataSource $dataSource, Query $query = null): Response
+    public function editor(DataSource $dataSource, ?Query $query = null): Response
     {
         $this->authorize('view', $dataSource);
-        
+
         if ($query) {
             $this->authorize('view', $query);
         }
@@ -80,7 +80,7 @@ class QueryController extends Controller
 
         // Validate the query
         $validation = $this->queryService->validateQuery($validated['sql']);
-        if (!$validation['valid']) {
+        if (! $validation['valid']) {
             return response()->json([
                 'success' => false,
                 'error' => $validation['error'],

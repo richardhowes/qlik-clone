@@ -165,7 +165,6 @@ class DataSourceController extends Controller
         ]);
     }
 
-
     public function getConfigFields(Request $request)
     {
         $request->validate([
@@ -174,6 +173,7 @@ class DataSourceController extends Controller
 
         try {
             $connector = $this->connectionManager->getConnector($request->type);
+
             return response()->json([
                 'fields' => $connector->getConfigFields(),
             ]);

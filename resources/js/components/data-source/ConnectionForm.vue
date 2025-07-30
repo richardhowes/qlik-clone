@@ -36,13 +36,15 @@ const fetchFields = async () => {
         if (data.fields) {
             fields.value = data.fields;
             
-            // Initialize form data with defaults
+            // Initialize form data with existing values or defaults
             const initialData: Record<string, any> = {};
             data.fields.forEach((field: ConfigField) => {
-                if (props.modelValue[field.name] !== undefined) {
+                if (props.modelValue && props.modelValue[field.name] !== undefined) {
                     initialData[field.name] = props.modelValue[field.name];
                 } else if (field.default !== undefined) {
                     initialData[field.name] = field.default;
+                } else {
+                    initialData[field.name] = '';
                 }
             });
             formData.value = initialData;
@@ -63,6 +65,7 @@ watch(formData, (newValue) => {
 }, { deep: true });
 
 onMounted(() => {
+    console.log('ConnectionForm mounted with modelValue:', props.modelValue);
     if (props.type) {
         fetchFields();
     }
@@ -85,7 +88,7 @@ const updateField = (fieldName: string, value: any) => {
                 <Input
                     :id="field.name"
                     :type="field.type"
-                    :value="formData[field.name]"
+                    :modelValue="formData[field.name]"
                     @update:modelValue="updateField(field.name, $event)"
                     :placeholder="field.default?.toString()"
                     :class="{ 'border-destructive': errors?.[field.name] }"

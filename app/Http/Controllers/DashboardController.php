@@ -62,9 +62,9 @@ class DashboardController extends Controller
             ->with('dataSource')
             ->latest()
             ->get();
-            
+
         $dashboard->load(['widgets.savedQuery.dataSource']);
-            
+
         return Inertia::render('dashboards/Edit', [
             'dashboard' => $dashboard,
             'availableQueries' => $queries,
@@ -138,7 +138,7 @@ class DashboardController extends Controller
     public function updateWidget(Request $request, Dashboard $dashboard, DashboardWidget $widget)
     {
         $this->authorize('update', $dashboard);
-        
+
         if ($widget->dashboard_id !== $dashboard->id) {
             abort(403);
         }
@@ -159,7 +159,7 @@ class DashboardController extends Controller
     public function deleteWidget(Dashboard $dashboard, DashboardWidget $widget)
     {
         $this->authorize('update', $dashboard);
-        
+
         if ($widget->dashboard_id !== $dashboard->id) {
             abort(403);
         }

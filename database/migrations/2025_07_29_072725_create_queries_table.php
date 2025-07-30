@@ -21,7 +21,7 @@ return new class extends Migration
             $table->integer('execution_time')->nullable(); // milliseconds
             $table->integer('row_count')->nullable();
             $table->timestamps();
-            
+
             $table->index(['user_id', 'data_source_id']);
         });
     }

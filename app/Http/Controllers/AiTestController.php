@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use Prism\Prism\Prism;
-use Prism\Prism\Enums\Provider;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Prism;
 
 class AiTestController extends Controller
 {
@@ -22,7 +22,7 @@ class AiTestController extends Controller
 
         try {
             $response = Prism::text()
-                ->using(Provider::Anthropic, 'claude-3-haiku-20240307')
+                ->using(Provider::OpenAI, 'gpt-3.5-turbo')
                 ->withPrompt($request->input('prompt'))
                 ->withMaxTokens(500)
                 ->asText();

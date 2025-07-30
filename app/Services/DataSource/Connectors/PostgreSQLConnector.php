@@ -4,7 +4,6 @@ namespace App\Services\DataSource\Connectors;
 
 use Exception;
 use PDO;
-use PDOException;
 
 class PostgreSQLConnector implements ConnectorInterface
 {
@@ -13,7 +12,7 @@ class PostgreSQLConnector implements ConnectorInterface
         try {
             $pdo = $this->getConnection($config);
             $pdo->query('SELECT 1');
-            
+
             return [
                 'success' => true,
                 'message' => 'Connection successful',
@@ -30,7 +29,7 @@ class PostgreSQLConnector implements ConnectorInterface
     {
         try {
             $pdo = $this->getConnection($config);
-            
+
             // Get tables
             $stmt = $pdo->query("
                 SELECT 
@@ -42,11 +41,11 @@ class PostgreSQLConnector implements ConnectorInterface
                 AND t.table_type = 'BASE TABLE'
                 ORDER BY t.table_name
             ");
-            
+
             $tables = [];
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 $tableName = $row['table_name'];
-                
+
                 // Get columns for each table
                 $colStmt = $pdo->prepare("
                     SELECT 
@@ -74,7 +73,7 @@ class PostgreSQLConnector implements ConnectorInterface
                     ORDER BY c.ordinal_position
                 ");
                 $colStmt->execute([$tableName]);
-                
+
                 $columns = [];
                 while ($col = $colStmt->fetch(PDO::FETCH_ASSOC)) {
                     $columns[] = [
@@ -85,14 +84,14 @@ class PostgreSQLConnector implements ConnectorInterface
                         'comment' => $col['column_comment'],
                     ];
                 }
-                
+
                 $tables[] = [
                     'name' => $tableName,
                     'comment' => $row['table_comment'],
                     'columns' => $columns,
                 ];
             }
-            
+
             return [
                 'tables' => $tables,
                 'error' => false,
@@ -109,15 +108,15 @@ class PostgreSQLConnector implements ConnectorInterface
     {
         try {
             $pdo = $this->getConnection($config);
-            
+
             // Set a reasonable timeout
             $pdo->setAttribute(PDO::ATTR_TIMEOUT, 30);
-            
+
             $stmt = $pdo->prepare($query);
             $stmt->execute($params);
-            
+
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
+
             return [
                 'data' => $results,
                 'rowCount' => count($results),
@@ -197,17 +196,17 @@ class PostgreSQLConnector implements ConnectorInterface
             $config['port'] ?? '5432',
             $config['database']
         );
-        
-        if (!empty($config['sslmode']) && $config['sslmode'] !== 'disable') {
-            $dsn .= ';sslmode=' . $config['sslmode'];
+
+        if (! empty($config['sslmode']) && $config['sslmode'] !== 'disable') {
+            $dsn .= ';sslmode='.$config['sslmode'];
         }
-        
+
         $options = [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
         ];
-        
+
         return new PDO(
             $dsn,
             $config['username'],
