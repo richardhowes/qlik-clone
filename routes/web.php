@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AiTestController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DataSourceController;
 use App\Http\Controllers\QueryController;
@@ -55,6 +56,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('learn', function () {
         return Inertia::render('Learn');
     })->name('learn');
+
+    // AI Test Routes
+    Route::get('ai/test', [AiTestController::class, 'index'])->name('ai.test');
+    Route::post('ai/generate', [AiTestController::class, 'generate'])->name('ai.generate');
 });
 
 require __DIR__.'/settings.php';
