@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ref, watch, onMounted } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 
 interface ConfigField {
     name: string;
@@ -32,10 +31,10 @@ const fetchFields = async () => {
     try {
         const response = await fetch(route('data-sources.config-fields') + `?type=${props.type}`);
         const data = await response.json();
-        
+
         if (data.fields) {
             fields.value = data.fields;
-            
+
             // Initialize form data with existing values or defaults
             const initialData: Record<string, any> = {};
             data.fields.forEach((field: ConfigField) => {
@@ -55,14 +54,21 @@ const fetchFields = async () => {
 };
 
 // Watch for type changes
-watch(() => props.type, () => {
-    fetchFields();
-});
+watch(
+    () => props.type,
+    () => {
+        fetchFields();
+    },
+);
 
 // Watch form data changes and emit updates
-watch(formData, (newValue) => {
-    emit('update:modelValue', newValue);
-}, { deep: true });
+watch(
+    formData,
+    (newValue) => {
+        emit('update:modelValue', newValue);
+    },
+    { deep: true },
+);
 
 onMounted(() => {
     console.log('ConnectionForm mounted with modelValue:', props.modelValue);
@@ -101,11 +107,7 @@ const updateField = (fieldName: string, value: any) => {
             <!-- Checkbox -->
             <template v-else-if="field.type === 'checkbox'">
                 <div class="flex items-center space-x-2">
-                    <Checkbox
-                        :id="field.name"
-                        :checked="formData[field.name]"
-                        @update:checked="updateField(field.name, $event)"
-                    />
+                    <Checkbox :id="field.name" :checked="formData[field.name]" @update:checked="updateField(field.name, $event)" />
                     <Label :for="field.name" class="cursor-pointer">
                         {{ field.label }}
                     </Label>
@@ -118,19 +120,12 @@ const updateField = (fieldName: string, value: any) => {
                     {{ field.label }}
                     <span v-if="field.required" class="text-destructive">*</span>
                 </Label>
-                <Select
-                    :value="formData[field.name]"
-                    @update:modelValue="updateField(field.name, $event)"
-                >
+                <Select :value="formData[field.name]" @update:modelValue="updateField(field.name, $event)">
                     <SelectTrigger :id="field.name">
                         <SelectValue :placeholder="`Select ${field.label.toLowerCase()}`" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem 
-                            v-for="option in field.options" 
-                            :key="option.value"
-                            :value="option.value"
-                        >
+                        <SelectItem v-for="option in field.options" :key="option.value" :value="option.value">
                             {{ option.label }}
                         </SelectItem>
                     </SelectContent>
@@ -143,9 +138,7 @@ const updateField = (fieldName: string, value: any) => {
 
         <!-- Test Connection Button -->
         <div class="pt-4">
-            <p class="text-sm text-muted-foreground mb-2">
-                Test your connection to ensure the settings are correct
-            </p>
+            <p class="mb-2 text-sm text-muted-foreground">Test your connection to ensure the settings are correct</p>
         </div>
     </div>
 </template>

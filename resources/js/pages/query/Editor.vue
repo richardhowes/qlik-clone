@@ -1,23 +1,23 @@
 <script setup lang="ts">
+import { BarChart, LineChart, PieChart, ScatterChart } from '@/components/charts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs as TabsRoot, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TabsContent, TabsList, Tabs as TabsRoot, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router } from '@inertiajs/vue3';
-import { basicSetup } from 'codemirror';
+import { autocompletion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { sql, SQLConfig } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView } from '@codemirror/view';
-import { autocompletion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
-import { Codemirror } from 'vue-codemirror';
-import { Database, Download, Play, Save, Clock, AlertCircle, BarChart2 } from 'lucide-vue-next';
-import { ref, computed, watch } from 'vue';
-import { BarChart, LineChart, PieChart, ScatterChart } from '@/components/charts';
+import { Head, router } from '@inertiajs/vue3';
 import axios from 'axios';
+import { basicSetup } from 'codemirror';
+import { AlertCircle, BarChart2, Clock, Download, Play, Save } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
+import { Codemirror } from 'vue-codemirror';
 
 interface DataSource {
     id: number;
@@ -102,13 +102,13 @@ const chartConfig = ref({
 // Build SQL schema for CodeMirror
 const buildSQLSchema = () => {
     if (!props.schema || !props.schema.tables) return {};
-    
+
     const schema: Record<string, string[]> = {};
-    
-    props.schema.tables.forEach(table => {
-        schema[table.name] = table.columns.map(col => col.name);
+
+    props.schema.tables.forEach((table) => {
+        schema[table.name] = table.columns.map((col) => col.name);
     });
-    
+
     return schema;
 };
 
@@ -116,10 +116,10 @@ const buildSQLSchema = () => {
 const sqlCompletion = (context: CompletionContext): CompletionResult | null => {
     const word = context.matchBefore(/\w*/);
     if (!word || (word.from === word.to && !context.explicit)) return null;
-    
+
     const schema = buildSQLSchema();
     const options = [];
-    
+
     // Add table names
     for (const table in schema) {
         options.push({
@@ -129,10 +129,10 @@ const sqlCompletion = (context: CompletionContext): CompletionResult | null => {
             detail: 'table',
         });
     }
-    
+
     // Add column names for all tables
     for (const table in schema) {
-        schema[table].forEach(column => {
+        schema[table].forEach((column) => {
             options.push({
                 label: `${table}.${column}`,
                 type: 'property',
@@ -148,42 +148,69 @@ const sqlCompletion = (context: CompletionContext): CompletionResult | null => {
             });
         });
     }
-    
+
     // Add SQL keywords
     const keywords = [
-        'SELECT', 'FROM', 'WHERE', 'GROUP BY', 'ORDER BY', 'HAVING',
-        'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'OUTER JOIN',
-        'ON', 'AND', 'OR', 'NOT', 'IN', 'EXISTS', 'BETWEEN', 'LIKE',
-        'AS', 'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX',
-        'LIMIT', 'OFFSET', 'UNION', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END'
+        'SELECT',
+        'FROM',
+        'WHERE',
+        'GROUP BY',
+        'ORDER BY',
+        'HAVING',
+        'JOIN',
+        'LEFT JOIN',
+        'RIGHT JOIN',
+        'INNER JOIN',
+        'OUTER JOIN',
+        'ON',
+        'AND',
+        'OR',
+        'NOT',
+        'IN',
+        'EXISTS',
+        'BETWEEN',
+        'LIKE',
+        'AS',
+        'DISTINCT',
+        'COUNT',
+        'SUM',
+        'AVG',
+        'MIN',
+        'MAX',
+        'LIMIT',
+        'OFFSET',
+        'UNION',
+        'CASE',
+        'WHEN',
+        'THEN',
+        'ELSE',
+        'END',
     ];
-    
-    keywords.forEach(keyword => {
+
+    keywords.forEach((keyword) => {
         options.push({
             label: keyword,
             type: 'keyword',
             apply: keyword,
         });
     });
-    
+
     return {
         from: word.from,
-        options: options.filter(opt => 
-            opt.label.toLowerCase().startsWith(word.text.toLowerCase())
-        ),
+        options: options.filter((opt) => opt.label.toLowerCase().startsWith(word.text.toLowerCase())),
     };
 };
 
 // CodeMirror extensions
 const extensions = computed(() => {
     const isDark = document.documentElement.classList.contains('dark');
-    
+
     // SQL configuration with schema
     const sqlConfig: SQLConfig = {
         schema: buildSQLSchema(),
         upperCaseKeywords: true,
     };
-    
+
     return [
         basicSetup,
         sql(sqlConfig),
@@ -210,7 +237,7 @@ const executeQuery = async () => {
             sql: sqlQuery.value,
             limit: queryLimit.value,
         });
-        
+
         result.value = response.data;
     } catch (error: any) {
         result.value = {
@@ -236,7 +263,7 @@ const saveQuery = async () => {
             name: queryName.value,
             sql: sqlQuery.value,
         });
-        
+
         router.reload({ only: ['recentQueries'] });
     } catch (error) {
         alert('Failed to save query');
@@ -259,16 +286,18 @@ const exportResults = () => {
     const headers = Object.keys(result.value.data[0]);
     const csv = [
         headers.join(','),
-        ...result.value.data.map(row => 
-            headers.map(header => {
-                const value = row[header];
-                // Escape quotes and wrap in quotes if contains comma or newline
-                if (typeof value === 'string' && (value.includes(',') || value.includes('\n') || value.includes('"'))) {
-                    return `"${value.replace(/"/g, '""')}"`;
-                }
-                return value;
-            }).join(',')
-        )
+        ...result.value.data.map((row) =>
+            headers
+                .map((header) => {
+                    const value = row[header];
+                    // Escape quotes and wrap in quotes if contains comma or newline
+                    if (typeof value === 'string' && (value.includes(',') || value.includes('\n') || value.includes('"'))) {
+                        return `"${value.replace(/"/g, '""')}"`;
+                    }
+                    return value;
+                })
+                .join(','),
+        ),
     ].join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -289,17 +318,17 @@ const formatExecutionTime = (ms: number) => {
 // Analyze data types
 const analyzeDataTypes = (data: any[], columns: Array<{ name: string; type: string }>) => {
     const analysis: Record<string, { type: string; isNumeric: boolean; isDate: boolean; uniqueCount: number }> = {};
-    
-    columns.forEach(col => {
-        const values = data.map(row => row[col.name]).filter(v => v !== null && v !== undefined);
+
+    columns.forEach((col) => {
+        const values = data.map((row) => row[col.name]).filter((v) => v !== null && v !== undefined);
         const uniqueValues = new Set(values);
-        
+
         // Check if numeric
-        const isNumeric = values.every(v => !isNaN(Number(v)));
-        
+        const isNumeric = values.every((v) => !isNaN(Number(v)));
+
         // Check if date
-        const isDate = values.every(v => !isNaN(Date.parse(String(v))));
-        
+        const isDate = values.every((v) => !isNaN(Date.parse(String(v))));
+
         analysis[col.name] = {
             type: col.type,
             isNumeric,
@@ -307,61 +336,60 @@ const analyzeDataTypes = (data: any[], columns: Array<{ name: string; type: stri
             uniqueCount: uniqueValues.size,
         };
     });
-    
+
     return analysis;
 };
 
 // Suggest chart types based on data
 const suggestChartTypes = () => {
     if (!result.value?.data || !result.value?.columns) return [];
-    
+
     const analysis = analyzeDataTypes(result.value.data, result.value.columns);
-    const numericColumns = Object.keys(analysis).filter(col => analysis[col].isNumeric);
-    const categoricalColumns = Object.keys(analysis).filter(col => !analysis[col].isNumeric);
-    
+    const numericColumns = Object.keys(analysis).filter((col) => analysis[col].isNumeric);
+    const categoricalColumns = Object.keys(analysis).filter((col) => !analysis[col].isNumeric);
+
     const suggestions = [];
-    
+
     // Bar chart: good for categorical + numeric
     if (categoricalColumns.length > 0 && numericColumns.length > 0) {
         suggestions.push('bar');
     }
-    
+
     // Line chart: good for time series or continuous numeric
-    if (numericColumns.length >= 2 || (categoricalColumns.some(col => analysis[col].isDate) && numericColumns.length > 0)) {
+    if (numericColumns.length >= 2 || (categoricalColumns.some((col) => analysis[col].isDate) && numericColumns.length > 0)) {
         suggestions.push('line');
     }
-    
+
     // Pie chart: good for categorical + single numeric with limited categories
-    if (categoricalColumns.length > 0 && numericColumns.length > 0 && 
-        categoricalColumns.some(col => analysis[col].uniqueCount <= 10)) {
+    if (categoricalColumns.length > 0 && numericColumns.length > 0 && categoricalColumns.some((col) => analysis[col].uniqueCount <= 10)) {
         suggestions.push('pie');
     }
-    
+
     // Scatter: good for two numeric columns
     if (numericColumns.length >= 2) {
         suggestions.push('scatter');
     }
-    
+
     return suggestions;
 };
 
 // Initialize visualization
 const initializeVisualization = () => {
     if (!result.value?.data || !result.value?.columns) return;
-    
+
     showVisualization.value = true;
     activeTab.value = 'visualization';
-    
+
     const analysis = analyzeDataTypes(result.value.data, result.value.columns);
-    const numericColumns = Object.keys(analysis).filter(col => analysis[col].isNumeric);
-    const categoricalColumns = Object.keys(analysis).filter(col => !analysis[col].isNumeric);
-    
+    const numericColumns = Object.keys(analysis).filter((col) => analysis[col].isNumeric);
+    const categoricalColumns = Object.keys(analysis).filter((col) => !analysis[col].isNumeric);
+
     // Auto-select chart type
     const suggestions = suggestChartTypes();
     if (suggestions.length > 0) {
         selectedChartType.value = suggestions[0] as any;
     }
-    
+
     // Auto-configure axes
     if (selectedChartType.value === 'bar' || selectedChartType.value === 'line') {
         chartConfig.value.xAxis = categoricalColumns[0] || numericColumns[0] || '';
@@ -379,37 +407,37 @@ const initializeVisualization = () => {
 // Prepare chart data
 const chartData = computed(() => {
     if (!result.value?.data || !chartConfig.value.xAxis) return null;
-    
+
     if (selectedChartType.value === 'pie') {
         // Aggregate data for pie chart
         const aggregated: Record<string, number> = {};
-        result.value.data.forEach(row => {
+        result.value.data.forEach((row) => {
             const key = String(row[chartConfig.value.xAxis]);
             const value = Number(row[chartConfig.value.yAxis]) || 0;
             aggregated[key] = (aggregated[key] || 0) + value;
         });
-        
+
         return Object.entries(aggregated).map(([name, value]) => ({ name, value }));
     } else if (selectedChartType.value === 'scatter') {
-        return result.value.data.map(row => ({
+        return result.value.data.map((row) => ({
             x: Number(row[chartConfig.value.xAxis]) || 0,
             y: Number(row[chartConfig.value.yAxis]) || 0,
             name: row[chartConfig.value.xAxis],
         }));
     } else {
         // Bar and Line charts
-        const xValues = [...new Set(result.value.data.map(row => String(row[chartConfig.value.xAxis])))];
-        
+        const xValues = [...new Set(result.value.data.map((row) => String(row[chartConfig.value.xAxis])))];
+
         if (chartConfig.value.series.length > 0) {
             // Multiple series
-            const series = chartConfig.value.series.map(seriesName => ({
+            const series = chartConfig.value.series.map((seriesName) => ({
                 name: seriesName,
-                data: xValues.map(x => {
-                    const row = result.value!.data.find(r => String(r[chartConfig.value.xAxis]) === x);
-                    return row ? (Number(row[seriesName]) || 0) : 0;
+                data: xValues.map((x) => {
+                    const row = result.value!.data.find((r) => String(r[chartConfig.value.xAxis]) === x);
+                    return row ? Number(row[seriesName]) || 0 : 0;
                 }),
             }));
-            
+
             return {
                 categories: xValues,
                 series,
@@ -418,13 +446,15 @@ const chartData = computed(() => {
             // Single series
             return {
                 categories: xValues,
-                series: [{
-                    name: chartConfig.value.yAxis,
-                    data: xValues.map(x => {
-                        const row = result.value!.data.find(r => String(r[chartConfig.value.xAxis]) === x);
-                        return row ? (Number(row[chartConfig.value.yAxis]) || 0) : 0;
-                    }),
-                }],
+                series: [
+                    {
+                        name: chartConfig.value.yAxis,
+                        data: xValues.map((x) => {
+                            const row = result.value!.data.find((r) => String(r[chartConfig.value.xAxis]) === x);
+                            return row ? Number(row[chartConfig.value.yAxis]) || 0 : 0;
+                        }),
+                    },
+                ],
             };
         }
     }
@@ -433,16 +463,15 @@ const chartData = computed(() => {
 // Available columns for chart configuration
 const availableColumns = computed(() => {
     if (!result.value?.columns) return { all: [], numeric: [], categorical: [] };
-    
+
     const analysis = analyzeDataTypes(result.value.data || [], result.value.columns);
-    
+
     return {
-        all: result.value.columns.map(col => col.name),
-        numeric: Object.keys(analysis).filter(col => analysis[col].isNumeric),
-        categorical: Object.keys(analysis).filter(col => !analysis[col].isNumeric),
+        all: result.value.columns.map((col) => col.name),
+        numeric: Object.keys(analysis).filter((col) => analysis[col].isNumeric),
+        categorical: Object.keys(analysis).filter((col) => !analysis[col].isNumeric),
     };
 });
-
 </script>
 
 <template>
@@ -454,24 +483,15 @@ const availableColumns = computed(() => {
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight">Query Editor</h1>
-                    <p class="text-muted-foreground">
-                        Execute SQL queries on {{ dataSource.name }}
-                    </p>
+                    <p class="text-muted-foreground">Execute SQL queries on {{ dataSource.name }}</p>
                 </div>
-                
+
                 <div class="flex gap-2">
-                    <Button
-                        variant="outline"
-                        @click="saveQuery"
-                        :disabled="saving || !sqlQuery.trim()"
-                    >
+                    <Button variant="outline" @click="saveQuery" :disabled="saving || !sqlQuery.trim()">
                         <Save class="mr-2 h-4 w-4" />
                         {{ saving ? 'Saving...' : 'Save Query' }}
                     </Button>
-                    <Button
-                        @click="executeQuery"
-                        :disabled="executing || !sqlQuery.trim()"
-                    >
+                    <Button @click="executeQuery" :disabled="executing || !sqlQuery.trim()">
                         <Play class="mr-2 h-4 w-4" />
                         {{ executing ? 'Executing...' : 'Run Query' }}
                     </Button>
@@ -483,24 +503,20 @@ const availableColumns = computed(() => {
                 <Card class="lg:col-span-1">
                     <CardHeader>
                         <CardTitle class="text-base">Recent Queries</CardTitle>
-                        <CardDescription>
-                            Click to load a saved query
-                        </CardDescription>
+                        <CardDescription> Click to load a saved query </CardDescription>
                     </CardHeader>
                     <CardContent class="p-0">
-                        <div v-if="recentQueries.length === 0" class="p-4 text-center text-sm text-muted-foreground">
-                            No saved queries yet
-                        </div>
+                        <div v-if="recentQueries.length === 0" class="p-4 text-center text-sm text-muted-foreground">No saved queries yet</div>
                         <div v-else class="divide-y">
                             <button
                                 v-for="q in recentQueries"
                                 :key="q.id"
                                 @click="loadQuery(q)"
-                                class="w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors"
+                                class="w-full px-4 py-3 text-left transition-colors hover:bg-muted/50"
                                 :class="{ 'opacity-60': !q.name }"
                             >
-                                <div class="font-medium text-sm">{{ q.name || 'Unnamed Query' }}</div>
-                                <div class="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                                <div class="text-sm font-medium">{{ q.name || 'Unnamed Query' }}</div>
+                                <div class="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                                     <Clock class="h-3 w-3" />
                                     {{ new Date(q.created_at).toLocaleDateString() }}
                                 </div>
@@ -510,17 +526,13 @@ const availableColumns = computed(() => {
                 </Card>
 
                 <!-- Right Panel - Editor and Results -->
-                <div class="lg:col-span-3 space-y-4">
+                <div class="space-y-4 lg:col-span-3">
                     <!-- Query Name -->
                     <Card>
                         <CardContent class="pt-6">
                             <div class="space-y-2">
                                 <Label for="query-name">Query Name</Label>
-                                <Input
-                                    id="query-name"
-                                    v-model="queryName"
-                                    placeholder="Enter a name for this query"
-                                />
+                                <Input id="query-name" v-model="queryName" placeholder="Enter a name for this query" />
                             </div>
                         </CardContent>
                     </Card>
@@ -532,7 +544,7 @@ const availableColumns = computed(() => {
                                 <CardTitle class="text-base">SQL Query</CardTitle>
                                 <div class="flex items-center gap-2">
                                     <Label for="limit" class="text-sm">Limit:</Label>
-                                    <Select :model-value="String(queryLimit)" @update:model-value="(value) => queryLimit = parseInt(value)">
+                                    <Select :model-value="String(queryLimit)" @update:model-value="(value) => (queryLimit = parseInt(value))">
                                         <SelectTrigger id="limit" class="w-[120px]">
                                             <SelectValue />
                                         </SelectTrigger>
@@ -548,12 +560,7 @@ const availableColumns = computed(() => {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <Codemirror
-                                v-model="sqlQuery"
-                                :extensions="extensions"
-                                :autofocus="true"
-                                :indent-with-tab="true"
-                            />
+                            <Codemirror v-model="sqlQuery" :extensions="extensions" :autofocus="true" :indent-with-tab="true" />
                         </CardContent>
                     </Card>
 
@@ -574,7 +581,7 @@ const availableColumns = computed(() => {
                                             @click="initializeVisualization"
                                             :disabled="!result.data || result.data.length === 0"
                                         >
-                                            <BarChart2 class="h-4 w-4 mr-1" />
+                                            <BarChart2 class="mr-1 h-4 w-4" />
                                             Visualize
                                         </Button>
                                         <Button
@@ -593,7 +600,7 @@ const availableColumns = computed(() => {
                             <!-- Error State -->
                             <div v-if="!result.success" class="rounded-lg border border-red-200 bg-red-50 p-4">
                                 <div class="flex gap-3">
-                                    <AlertCircle class="h-5 w-5 text-red-600 flex-shrink-0" />
+                                    <AlertCircle class="h-5 w-5 flex-shrink-0 text-red-600" />
                                     <div class="text-sm text-red-800">
                                         {{ result.error }}
                                     </div>
@@ -611,28 +618,24 @@ const availableColumns = computed(() => {
                                     <!-- Results Tab -->
                                     <TabsContent value="results">
                                         <div v-if="result.data.length > 0" class="relative">
-                                            <div class="overflow-auto max-h-[600px] border rounded scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
-                                                <table class="w-full border-collapse min-w-max">
+                                            <div
+                                                class="scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent max-h-[600px] overflow-auto rounded border"
+                                            >
+                                                <table class="w-full min-w-max border-collapse">
                                                     <thead class="sticky top-0 z-10">
                                                         <tr class="border-b bg-background">
                                                             <th
                                                                 v-for="column in result.columns"
                                                                 :key="column.name"
-                                                                class="px-4 py-2 text-left text-sm font-medium whitespace-nowrap border-b"
+                                                                class="border-b px-4 py-2 text-left text-sm font-medium whitespace-nowrap"
                                                             >
                                                                 {{ column.name }}
-                                                                <span class="text-xs text-muted-foreground ml-1">
-                                                                    ({{ column.type }})
-                                                                </span>
+                                                                <span class="ml-1 text-xs text-muted-foreground"> ({{ column.type }}) </span>
                                                             </th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        <tr
-                                                            v-for="(row, index) in result.data"
-                                                            :key="index"
-                                                            class="border-b hover:bg-muted/50"
-                                                        >
+                                                        <tr v-for="(row, index) in result.data" :key="index" class="border-b hover:bg-muted/50">
                                                             <td
                                                                 v-for="column in result.columns"
                                                                 :key="column.name"
@@ -648,9 +651,7 @@ const availableColumns = computed(() => {
                                                 Results limited to {{ queryLimit.toLocaleString() }} rows
                                             </div>
                                         </div>
-                                        <div v-else class="text-center py-8 text-muted-foreground">
-                                            Query returned no results
-                                        </div>
+                                        <div v-else class="py-8 text-center text-muted-foreground">Query returned no results</div>
                                     </TabsContent>
 
                                     <!-- Visualization Tab -->
@@ -680,11 +681,7 @@ const availableColumns = computed(() => {
                                                         <SelectValue placeholder="Select column" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem 
-                                                            v-for="col in availableColumns.all" 
-                                                            :key="col" 
-                                                            :value="col"
-                                                        >
+                                                        <SelectItem v-for="col in availableColumns.all" :key="col" :value="col">
                                                             {{ col }}
                                                         </SelectItem>
                                                     </SelectContent>
@@ -699,11 +696,7 @@ const availableColumns = computed(() => {
                                                         <SelectValue placeholder="Select column" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem 
-                                                            v-for="col in availableColumns.numeric" 
-                                                            :key="col" 
-                                                            :value="col"
-                                                        >
+                                                        <SelectItem v-for="col in availableColumns.numeric" :key="col" :value="col">
                                                             {{ col }}
                                                         </SelectItem>
                                                     </SelectContent>
@@ -713,26 +706,14 @@ const availableColumns = computed(() => {
 
                                         <!-- Chart Display -->
                                         <div v-if="chartData" class="mt-6">
-                                            <BarChart 
-                                                v-if="selectedChartType === 'bar'" 
+                                            <BarChart v-if="selectedChartType === 'bar'" :data="chartData" height="400px" />
+                                            <LineChart
+                                                v-else-if="selectedChartType === 'line' && chartData.categories"
                                                 :data="chartData"
                                                 height="400px"
                                             />
-                                            <LineChart 
-                                                v-else-if="selectedChartType === 'line' && chartData.categories" 
-                                                :data="chartData"
-                                                height="400px"
-                                            />
-                                            <PieChart 
-                                                v-else-if="selectedChartType === 'pie'" 
-                                                :data="chartData"
-                                                height="400px"
-                                            />
-                                            <ScatterChart 
-                                                v-else-if="selectedChartType === 'scatter'" 
-                                                :data="chartData"
-                                                height="400px"
-                                            />
+                                            <PieChart v-else-if="selectedChartType === 'pie'" :data="chartData" height="400px" />
+                                            <ScatterChart v-else-if="selectedChartType === 'scatter'" :data="chartData" height="400px" />
                                         </div>
                                     </TabsContent>
                                 </TabsRoot>
@@ -740,28 +721,24 @@ const availableColumns = computed(() => {
                                 <!-- No tabs mode - just show table -->
                                 <div v-else>
                                     <div v-if="result.data.length > 0" class="relative">
-                                        <div class="overflow-auto max-h-[600px] border rounded scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
-                                            <table class="w-full border-collapse min-w-max">
+                                        <div
+                                            class="scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent max-h-[600px] overflow-auto rounded border"
+                                        >
+                                            <table class="w-full min-w-max border-collapse">
                                                 <thead class="sticky top-0 z-10">
                                                     <tr class="border-b bg-background">
                                                         <th
                                                             v-for="column in result.columns"
                                                             :key="column.name"
-                                                            class="px-4 py-2 text-left text-sm font-medium whitespace-nowrap border-b"
+                                                            class="border-b px-4 py-2 text-left text-sm font-medium whitespace-nowrap"
                                                         >
                                                             {{ column.name }}
-                                                            <span class="text-xs text-muted-foreground ml-1">
-                                                                ({{ column.type }})
-                                                            </span>
+                                                            <span class="ml-1 text-xs text-muted-foreground"> ({{ column.type }}) </span>
                                                         </th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    <tr
-                                                        v-for="(row, index) in result.data"
-                                                        :key="index"
-                                                        class="border-b hover:bg-muted/50"
-                                                    >
+                                                    <tr v-for="(row, index) in result.data" :key="index" class="border-b hover:bg-muted/50">
                                                         <td
                                                             v-for="column in result.columns"
                                                             :key="column.name"
@@ -777,9 +754,7 @@ const availableColumns = computed(() => {
                                             Results limited to {{ queryLimit.toLocaleString() }} rows
                                         </div>
                                     </div>
-                                    <div v-else class="text-center py-8 text-muted-foreground">
-                                        Query returned no results
-                                    </div>
+                                    <div v-else class="py-8 text-center text-muted-foreground">Query returned no results</div>
                                 </div>
                             </div>
                         </CardContent>

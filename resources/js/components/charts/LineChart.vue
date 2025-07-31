@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import BaseChart from './BaseChart.vue';
+import type { EChartsOption } from 'echarts';
 import { LineChart } from 'echarts/charts';
 import { use } from 'echarts/core';
-import type { EChartsOption } from 'echarts';
 import { computed } from 'vue';
+import BaseChart from './BaseChart.vue';
 
 // Register line chart
 use([LineChart]);
@@ -52,7 +52,7 @@ const option = computed<EChartsOption>(() => {
     if (isSeriesData(props.data)) {
         // Multiple series format
         xAxisData = props.data.categories;
-        series = props.data.series.map(s => ({
+        series = props.data.series.map((s) => ({
             name: s.name,
             type: 'line',
             data: s.data,
@@ -62,27 +62,34 @@ const option = computed<EChartsOption>(() => {
         }));
     } else {
         // Simple format
-        xAxisData = props.data.map(item => item.name);
-        series = [{
-            type: 'line',
-            data: props.data.map(item => item.value),
-            smooth: props.smooth,
-            areaStyle: props.area ? {} : undefined,
-            showSymbol: props.showSymbol,
-        }];
+        xAxisData = props.data.map((item) => item.name);
+        series = [
+            {
+                type: 'line',
+                data: props.data.map((item) => item.value),
+                smooth: props.smooth,
+                areaStyle: props.area ? {} : undefined,
+                showSymbol: props.showSymbol,
+            },
+        ];
     }
 
     const baseOption: EChartsOption = {
-        title: props.title ? {
-            text: props.title,
-            left: 'center',
-        } : undefined,
+        title: props.title
+            ? {
+                  text: props.title,
+                  left: 'center',
+              }
+            : undefined,
         tooltip: {
             trigger: 'axis',
         },
-        legend: isSeriesData(props.data) && props.data.series.length > 1 ? {
-            bottom: 0,
-        } : undefined,
+        legend:
+            isSeriesData(props.data) && props.data.series.length > 1
+                ? {
+                      bottom: 0,
+                  }
+                : undefined,
         xAxis: {
             type: 'category',
             data: xAxisData,
@@ -101,4 +108,5 @@ const option = computed<EChartsOption>(() => {
 </script>
 
 <template>
-    <BaseChart :option="option" :height="height" :loading="loading" /></template>
+    <BaseChart :option="option" :height="height" :loading="loading" />
+</template>

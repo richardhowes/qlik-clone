@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import BaseChart from './BaseChart.vue';
+import type { EChartsOption } from 'echarts';
 import { PieChart } from 'echarts/charts';
 import { use } from 'echarts/core';
-import type { EChartsOption } from 'echarts';
 import { computed } from 'vue';
+import BaseChart from './BaseChart.vue';
 
 // Register pie chart
 use([PieChart]);
@@ -35,18 +35,22 @@ const option = computed<EChartsOption>(() => {
     const radius = props.donut ? ['40%', '70%'] : '70%';
 
     const baseOption: EChartsOption = {
-        title: props.title ? {
-            text: props.title,
-            left: 'center',
-        } : undefined,
+        title: props.title
+            ? {
+                  text: props.title,
+                  left: 'center',
+              }
+            : undefined,
         tooltip: {
             trigger: 'item',
             formatter: '{a} <br/>{b}: {c} ({d}%)',
         },
-        legend: props.showLegend ? {
-            orient: 'vertical',
-            left: 'left',
-        } : undefined,
+        legend: props.showLegend
+            ? {
+                  orient: 'vertical',
+                  left: 'left',
+              }
+            : undefined,
         series: [
             {
                 name: props.title || 'Data',
@@ -82,4 +86,5 @@ const option = computed<EChartsOption>(() => {
 </script>
 
 <template>
-    <BaseChart :option="option" :height="height" :loading="loading" /></template>
+    <BaseChart :option="option" :height="height" :loading="loading" />
+</template>

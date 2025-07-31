@@ -41,8 +41,8 @@ const filteredData = computed(() => {
     // Search
     if (searchQuery.value) {
         const query = searchQuery.value.toLowerCase();
-        result = result.filter(row => {
-            return props.columns.some(col => {
+        result = result.filter((row) => {
+            return props.columns.some((col) => {
                 const value = row[col.key];
                 return value && value.toString().toLowerCase().includes(query);
             });
@@ -54,7 +54,7 @@ const filteredData = computed(() => {
         result.sort((a, b) => {
             const aVal = a[sortColumn.value!];
             const bVal = b[sortColumn.value!];
-            
+
             if (aVal < bVal) return sortDirection.value === 'asc' ? -1 : 1;
             if (aVal > bVal) return sortDirection.value === 'asc' ? 1 : -1;
             return 0;
@@ -86,15 +86,17 @@ const handleSort = (column: Column) => {
 };
 
 const exportToCSV = () => {
-    const headers = props.columns.map(col => col.label).join(',');
-    const rows = filteredData.value.map(row => {
-        return props.columns.map(col => {
-            const value = row[col.key];
-            const formatted = col.formatter ? col.formatter(value) : value;
-            // Escape quotes and wrap in quotes if contains comma
-            const escaped = String(formatted).replace(/"/g, '""');
-            return escaped.includes(',') ? `"${escaped}"` : escaped;
-        }).join(',');
+    const headers = props.columns.map((col) => col.label).join(',');
+    const rows = filteredData.value.map((row) => {
+        return props.columns
+            .map((col) => {
+                const value = row[col.key];
+                const formatted = col.formatter ? col.formatter(value) : value;
+                // Escape quotes and wrap in quotes if contains comma
+                const escaped = String(formatted).replace(/"/g, '""');
+                return escaped.includes(',') ? `"${escaped}"` : escaped;
+            })
+            .join(',');
     });
 
     const csv = [headers, ...rows].join('\n');
@@ -121,19 +123,10 @@ const getSortIcon = (column: Column) => {
                 <CardTitle v-if="title">{{ title }}</CardTitle>
                 <div class="flex items-center gap-2">
                     <div v-if="searchable" class="relative">
-                        <Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            v-model="searchQuery"
-                            placeholder="Search..."
-                            class="pl-8 w-[200px]"
-                        />
+                        <Search class="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input v-model="searchQuery" placeholder="Search..." class="w-[200px] pl-8" />
                     </div>
-                    <Button
-                        v-if="exportable"
-                        variant="outline"
-                        size="sm"
-                        @click="exportToCSV"
-                    >
+                    <Button v-if="exportable" variant="outline" size="sm" @click="exportToCSV">
                         <Download class="mr-2 h-4 w-4" />
                         Export
                     </Button>
@@ -155,42 +148,25 @@ const getSortIcon = (column: Column) => {
                                 ]"
                                 @click="handleSort(column)"
                             >
-                                <div class="flex items-center gap-1" :class="column.align === 'right' ? 'justify-end' : column.align === 'center' ? 'justify-center' : ''">
+                                <div
+                                    class="flex items-center gap-1"
+                                    :class="column.align === 'right' ? 'justify-end' : column.align === 'center' ? 'justify-center' : ''"
+                                >
                                     {{ column.label }}
-                                    <component
-                                        v-if="column.sortable"
-                                        :is="getSortIcon(column)"
-                                        class="h-3 w-3"
-                                    />
+                                    <component v-if="column.sortable" :is="getSortIcon(column)" class="h-3 w-3" />
                                 </div>
                             </th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="loading">
-                            <td :colspan="columns.length" class="py-8 text-center text-muted-foreground">
-                                Loading...
-                            </td>
+                            <td :colspan="columns.length" class="py-8 text-center text-muted-foreground">Loading...</td>
                         </tr>
                         <tr v-else-if="paginatedData.length === 0">
-                            <td :colspan="columns.length" class="py-8 text-center text-muted-foreground">
-                                No data available
-                            </td>
+                            <td :colspan="columns.length" class="py-8 text-center text-muted-foreground">No data available</td>
                         </tr>
-                        <tr
-                            v-else
-                            v-for="(row, index) in paginatedData"
-                            :key="index"
-                            class="border-b hover:bg-muted/50"
-                        >
-                            <td
-                                v-for="column in columns"
-                                :key="column.key"
-                                :class="[
-                                    'px-4 py-3',
-                                    `text-${column.align || 'left'}`,
-                                ]"
-                            >
+                        <tr v-else v-for="(row, index) in paginatedData" :key="index" class="border-b hover:bg-muted/50">
+                            <td v-for="column in columns" :key="column.key" :class="['px-4 py-3', `text-${column.align || 'left'}`]">
                                 {{ column.formatter ? column.formatter(row[column.key]) : row[column.key] }}
                             </td>
                         </tr>
@@ -201,27 +177,12 @@ const getSortIcon = (column: Column) => {
             <!-- Pagination -->
             <div v-if="totalPages > 1" class="mt-4 flex items-center justify-between">
                 <p class="text-sm text-muted-foreground">
-                    Showing {{ (currentPage - 1) * pageSize + 1 }} to
-                    {{ Math.min(currentPage * pageSize, filteredData.length) }} of
+                    Showing {{ (currentPage - 1) * pageSize + 1 }} to {{ Math.min(currentPage * pageSize, filteredData.length) }} of
                     {{ filteredData.length }} results
                 </p>
                 <div class="flex gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        :disabled="currentPage === 1"
-                        @click="currentPage--"
-                    >
-                        Previous
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        :disabled="currentPage === totalPages"
-                        @click="currentPage++"
-                    >
-                        Next
-                    </Button>
+                    <Button variant="outline" size="sm" :disabled="currentPage === 1" @click="currentPage--"> Previous </Button>
+                    <Button variant="outline" size="sm" :disabled="currentPage === totalPages" @click="currentPage++"> Next </Button>
                 </div>
             </div>
         </CardContent>

@@ -172,7 +172,7 @@
 .dark .cm-tooltip-autocomplete .cm-tooltip-option.cm-tooltip-option-selected,
 .dark .cm-autocomplete .cm-tooltip-option[aria-selected],
 .dark .cm-tooltip .cm-tooltip-option[aria-selected],
-.dark .cm-tooltip-autocomplete li[aria-selected="true"],
+.dark .cm-tooltip-autocomplete li[aria-selected='true'],
 .dark .cm-tooltip-autocomplete li.selected {
     background-color: #60a5fa !important;
     color: #0f172a !important;
@@ -182,7 +182,7 @@
 }
 
 .dark .cm-tooltip-autocomplete .cm-tooltip-option[aria-selected] *,
-.dark .cm-tooltip-autocomplete li[aria-selected="true"] * {
+.dark .cm-tooltip-autocomplete li[aria-selected='true'] * {
     color: #0f172a !important;
 }
 
@@ -264,7 +264,7 @@
 }
 
 .vue-grid-item > .vue-resizable-handle::after {
-    content: "";
+    content: '';
     position: absolute;
     right: 3px;
     bottom: 3px;

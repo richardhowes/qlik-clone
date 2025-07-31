@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import BaseChart from './BaseChart.vue';
+import type { EChartsOption } from 'echarts';
 import { BarChart } from 'echarts/charts';
 import { use } from 'echarts/core';
-import type { EChartsOption } from 'echarts';
 import { computed } from 'vue';
+import BaseChart from './BaseChart.vue';
 
 // Register bar chart
 use([BarChart]);
@@ -51,7 +51,7 @@ const option = computed<EChartsOption>(() => {
     if (isSeriesData(props.data)) {
         // Multiple series format
         xAxisData = props.data.categories;
-        series = props.data.series.map(s => ({
+        series = props.data.series.map((s) => ({
             type: 'bar',
             name: s.name,
             data: s.data,
@@ -65,8 +65,8 @@ const option = computed<EChartsOption>(() => {
         }));
     } else {
         // Simple format
-        xAxisData = props.data.map(item => item.name);
-        const seriesData = props.data.map(item => item.value);
+        xAxisData = props.data.map((item) => item.name);
+        const seriesData = props.data.map((item) => item.value);
         series = [
             {
                 type: 'bar',
@@ -83,19 +83,24 @@ const option = computed<EChartsOption>(() => {
     }
 
     const baseOption: EChartsOption = {
-        title: props.title ? {
-            text: props.title,
-            left: 'center',
-        } : undefined,
+        title: props.title
+            ? {
+                  text: props.title,
+                  left: 'center',
+              }
+            : undefined,
         tooltip: {
             trigger: 'axis',
             axisPointer: {
                 type: 'shadow',
             },
         },
-        legend: isSeriesData(props.data) && props.data.series.length > 1 ? {
-            bottom: 0,
-        } : undefined,
+        legend:
+            isSeriesData(props.data) && props.data.series.length > 1
+                ? {
+                      bottom: 0,
+                  }
+                : undefined,
         xAxis: {
             type: props.horizontal ? 'value' : 'category',
             data: props.horizontal ? undefined : xAxisData,
@@ -117,4 +122,5 @@ const option = computed<EChartsOption>(() => {
 </script>
 
 <template>
-    <BaseChart :option="option" :height="height" :loading="loading" /></template>
+    <BaseChart :option="option" :height="height" :loading="loading" />
+</template>

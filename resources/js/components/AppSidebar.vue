@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { BarChart3, BookOpen, Clock, Database, FolderOpen, Home, LayoutDashboard, Search, Sparkles, Star, FileCode } from 'lucide-vue-next';
+import { BookOpen, Clock, Database, FileCode, FolderOpen, Home, LayoutDashboard, Search, Sparkles, Star } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
 
 const mainNavItems: NavItem[] = [

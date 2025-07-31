@@ -5,9 +5,9 @@ import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { FileCode, Search, Trash2, ExternalLink, Database } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
 import { formatDistanceToNow } from 'date-fns';
+import { Database, ExternalLink, FileCode, Search, Trash2 } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface DataSource {
     id: number;
@@ -61,7 +61,7 @@ const breadcrumbs: BreadcrumbItem[] = computed(() => {
             {
                 title: 'Queries',
                 href: route('data-sources.queries.index', props.dataSource.id),
-            }
+            },
         );
     } else {
         items.push({
@@ -78,10 +78,7 @@ const filteredQueries = computed(() => {
 
     const query = searchQuery.value.toLowerCase();
     return props.queries.data.filter(
-        (q) => 
-            q.name.toLowerCase().includes(query) || 
-            q.sql.toLowerCase().includes(query) ||
-            q.data_source?.name.toLowerCase().includes(query)
+        (q) => q.name.toLowerCase().includes(query) || q.sql.toLowerCase().includes(query) || q.data_source?.name.toLowerCase().includes(query),
     );
 });
 
@@ -117,11 +114,7 @@ const openQuery = (query: Query) => {
                 <div class="flex gap-2">
                     <div class="relative">
                         <Search class="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            v-model="searchQuery" 
-                            placeholder="Search queries..." 
-                            class="w-[200px] pl-8 sm:w-[300px]" 
-                        />
+                        <Input v-model="searchQuery" placeholder="Search queries..." class="w-[200px] pl-8 sm:w-[300px]" />
                     </div>
                     <Button v-if="dataSource" as-child>
                         <Link :href="route('query.editor', dataSource.id)">
@@ -157,7 +150,12 @@ const openQuery = (query: Query) => {
 
             <!-- Query list -->
             <div v-else-if="filteredQueries.length > 0" class="grid gap-4">
-                <Card v-for="query in filteredQueries" :key="query.id" class="hover:shadow-md transition-shadow cursor-pointer" @click="openQuery(query)">
+                <Card
+                    v-for="query in filteredQueries"
+                    :key="query.id"
+                    class="cursor-pointer transition-shadow hover:shadow-md"
+                    @click="openQuery(query)"
+                >
                     <CardHeader>
                         <div class="flex items-start justify-between">
                             <div class="flex-1">
@@ -181,7 +179,7 @@ const openQuery = (query: Query) => {
                     </CardHeader>
                     <CardContent>
                         <div class="space-y-2">
-                            <div class="font-mono text-sm text-muted-foreground bg-muted p-3 rounded-md overflow-x-auto">
+                            <div class="overflow-x-auto rounded-md bg-muted p-3 font-mono text-sm text-muted-foreground">
                                 <pre class="whitespace-pre-wrap">{{ query.sql.substring(0, 200) }}{{ query.sql.length > 200 ? '...' : '' }}</pre>
                             </div>
                             <div class="text-xs text-muted-foreground">

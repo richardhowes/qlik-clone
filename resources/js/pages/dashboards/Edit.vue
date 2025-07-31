@@ -1,18 +1,17 @@
 <script setup lang="ts">
+import { BarChart, LineChart, PieChart, ScatterChart } from '@/components/charts';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BarChart, LineChart, PieChart, ScatterChart } from '@/components/charts';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
-import { GridLayout, GridItem } from 'vue3-grid-layout-next';
-import { Save, Plus, Settings, Trash2, GripVertical } from 'lucide-vue-next';
-import { ref, computed, onMounted, nextTick } from 'vue';
 import axios from 'axios';
+import { GripVertical, Plus, Save, Settings, Trash2 } from 'lucide-vue-next';
+import { nextTick, onMounted, ref } from 'vue';
+import { GridItem, GridLayout } from 'vue3-grid-layout-next';
 
 interface Query {
     id: number;
@@ -105,13 +104,12 @@ const colNum = 12;
 const rowHeight = 80;
 const maxRows = 20;
 
-
 // Save dashboard
 const saveDashboard = async () => {
     saving.value = true;
     try {
         console.log('Saving dashboard with layout:', layout.value);
-        
+
         await axios.put(route('dashboards.update', props.dashboard.id), {
             name: props.dashboard.name,
             description: props.dashboard.description,
@@ -120,30 +118,24 @@ const saveDashboard = async () => {
                 rowHeight,
             },
         });
-        
+
         // Update widget layouts
         for (const widget of widgets.value) {
-            const layoutItem = layout.value.find(item => 
-                String(widget.id) === item.i
-            );
+            const layoutItem = layout.value.find((item) => String(widget.id) === item.i);
             console.log(`Saving widget ${widget.id} with layout:`, layoutItem);
-            
+
             if (layoutItem && widget.id) {
-                const response = await axios.put(
-                    route('dashboards.widgets.update', [props.dashboard.id, widget.id]),
-                    {
-                        layout: {
-                            x: layoutItem.x,
-                            y: layoutItem.y,
-                            w: layoutItem.w,
-                            h: layoutItem.h,
-                        },
-                    }
-                );
+                const response = await axios.put(route('dashboards.widgets.update', [props.dashboard.id, widget.id]), {
+                    layout: {
+                        x: layoutItem.x,
+                        y: layoutItem.y,
+                        w: layoutItem.w,
+                        h: layoutItem.h,
+                    },
+                });
                 console.log(`Widget ${widget.id} update response:`, response.data);
             }
         }
-
 
         router.visit(route('dashboards.show', props.dashboard.id));
     } catch (error) {
@@ -159,7 +151,7 @@ const addWidget = async () => {
 
     try {
         console.log('Adding widget:', newWidget.value);
-        
+
         const response = await axios.post(route('dashboards.widgets.store', props.dashboard.id), {
             ...newWidget.value,
             layout: {
@@ -173,25 +165,24 @@ const addWidget = async () => {
 
         const widget = response.data.widget;
         console.log('Widget created:', widget);
-        
+
         // Add query info to widget
         if (widget.query_id && !widget.query) {
-            widget.query = props.availableQueries.find(q => q.id === widget.query_id);
+            widget.query = props.availableQueries.find((q) => q.id === widget.query_id);
         }
-        
+
         // Add widget to list
         widgets.value.push(widget);
-        
+
         // Find next available position
-        const existingPositions = layout.value.map(item => ({ x: item.x, y: item.y }));
-        let x = 0, y = 0;
-        
+        const existingPositions = layout.value.map((item) => ({ x: item.x, y: item.y }));
+        let x = 0,
+            y = 0;
+
         // Find first empty slot
         for (let row = 0; row < maxRows; row++) {
             for (let col = 0; col < colNum - 3; col += 4) {
-                const positionTaken = existingPositions.some(pos => 
-                    pos.x === col && pos.y === row * 4
-                );
+                const positionTaken = existingPositions.some((pos) => pos.x === col && pos.y === row * 4);
                 if (!positionTaken) {
                     x = col;
                     y = row * 4;
@@ -200,7 +191,7 @@ const addWidget = async () => {
             }
             if (x !== 0 || y !== 0) break;
         }
-        
+
         const newLayoutItem = {
             x: x,
             y: y,
@@ -208,14 +199,14 @@ const addWidget = async () => {
             h: 4,
             i: String(widget.id),
         };
-        
+
         // Force reactivity update
         layout.value = [...layout.value, newLayoutItem];
-        
+
         await nextTick();
         console.log('Updated layout:', layout.value);
         console.log('Current widgets:', widgets.value);
-        
+
         // Load data for the new widget
         if (widget.query_id) {
             loadWidgetData(widget);
@@ -247,15 +238,12 @@ const updateWidget = async () => {
     if (!selectedWidget.value?.id) return;
 
     try {
-        await axios.put(
-            route('dashboards.widgets.update', [props.dashboard.id, selectedWidget.value.id]),
-            {
-                title: selectedWidget.value.title,
-                config: selectedWidget.value.config,
-            }
-        );
+        await axios.put(route('dashboards.widgets.update', [props.dashboard.id, selectedWidget.value.id]), {
+            title: selectedWidget.value.title,
+            config: selectedWidget.value.config,
+        });
 
-        const index = widgets.value.findIndex(w => w.id === selectedWidget.value?.id);
+        const index = widgets.value.findIndex((w) => w.id === selectedWidget.value?.id);
         if (index !== -1) {
             widgets.value[index] = { ...selectedWidget.value };
         }
@@ -272,9 +260,9 @@ const deleteWidget = async (widget: Widget) => {
 
     try {
         await axios.delete(route('dashboards.widgets.destroy', [props.dashboard.id, widget.id]));
-        
-        widgets.value = widgets.value.filter(w => w.id !== widget.id);
-        layout.value = layout.value.filter(item => item.i !== String(widget.id));
+
+        widgets.value = widgets.value.filter((w) => w.id !== widget.id);
+        layout.value = layout.value.filter((item) => item.i !== String(widget.id));
     } catch (error) {
         console.error('Failed to delete widget:', error);
     }
@@ -291,28 +279,25 @@ const executeQuery = async (widget: Widget) => {
     if (!widget.query_id) return null;
 
     try {
-        const query = widget.savedQuery || widget.query || props.availableQueries.find(q => q.id === widget.query_id);
+        const query = widget.savedQuery || widget.query || props.availableQueries.find((q) => q.id === widget.query_id);
         if (!query) {
             console.error('Query not found for widget:', widget);
             return null;
         }
 
         console.log('Executing query for widget:', widget.id, 'Query:', query);
-        
+
         // Get the data source ID from the query
         const dataSourceId = query.data_source?.id || query.data_source_id;
         if (!dataSourceId) {
             console.error('No data source ID found for query:', query);
             return null;
         }
-        
-        const response = await axios.post(
-            route('query.execute', dataSourceId),
-            {
-                sql: query.sql,
-                limit: 1000,
-            }
-        );
+
+        const response = await axios.post(route('query.execute', dataSourceId), {
+            sql: query.sql,
+            limit: 1000,
+        });
 
         return response.data;
     } catch (error) {
@@ -323,7 +308,7 @@ const executeQuery = async (widget: Widget) => {
 
 // Helper to find widget for layout item
 const getWidgetForItem = (item: any) => {
-    const widget = widgets.value.find(w => String(w.id) === item.i);
+    const widget = widgets.value.find((w) => String(w.id) === item.i);
     return widget;
 };
 
@@ -334,23 +319,21 @@ const formatChartData = (queryResult: any, config: any) => {
     }
 
     const { xAxis, yAxis, series, chartType } = config || {};
-    
+
     // If no axis configuration, auto-detect based on data
     let xCol = xAxis;
     let yCol = yAxis;
-    
+
     if (!xCol || !yCol) {
         // Auto-detect columns based on query data
-        const columns = (queryResult.columns || []).map((col: any) => 
-            typeof col === 'string' ? col : (col?.name || '')
-        ).filter(Boolean);
-        
+        const columns = (queryResult.columns || []).map((col: any) => (typeof col === 'string' ? col : col?.name || '')).filter(Boolean);
+
         // If we have only one column, it might be a grouped result
         if (columns.length === 1 && queryResult.data.length > 0) {
             // Check the structure of the first data item
             const firstRow = queryResult.data[0];
             const rowKeys = Object.keys(firstRow);
-            
+
             // Use the actual keys from the data
             if (rowKeys.length >= 2) {
                 xCol = rowKeys[0];
@@ -358,14 +341,14 @@ const formatChartData = (queryResult: any, config: any) => {
             } else if (rowKeys.length === 1) {
                 // Single column - create a value distribution chart
                 const columnName = rowKeys[0];
-                
+
                 // Count occurrences of each value
                 const valueCounts: Record<string, number> = {};
                 queryResult.data.forEach((row: any) => {
                     const value = String(row[columnName] || 'Unknown');
                     valueCounts[value] = (valueCounts[value] || 0) + 1;
                 });
-                
+
                 // Convert to chart data format
                 return Object.entries(valueCounts)
                     .sort((a, b) => b[1] - a[1]) // Sort by count descending
@@ -382,20 +365,20 @@ const formatChartData = (queryResult: any, config: any) => {
             }
         }
     }
-    
+
     // Handle column format (could be string or object with name property)
     const getColumnName = (col: any) => {
         if (!col) return '';
-        return typeof col === 'string' ? col : (col.name || '');
+        return typeof col === 'string' ? col : col.name || '';
     };
     xCol = getColumnName(xCol);
     yCol = getColumnName(yCol);
-    
+
     // If still no columns, return empty data
     if (!xCol && !yCol) {
         return [];
     }
-    
+
     // For pie charts, return simple name/value pairs
     if (chartType === 'pie') {
         // Aggregate data for pie chart
@@ -405,23 +388,23 @@ const formatChartData = (queryResult: any, config: any) => {
             const value = Number(row[yCol] || 0);
             aggregated[key] = (aggregated[key] || 0) + value;
         });
-        
+
         return Object.entries(aggregated).map(([name, value]) => ({ name, value }));
     }
-    
+
     // For bar and line charts, support both simple and grouped data
     const xValues = [...new Set(queryResult.data.map((row: any) => String(row[xCol])))];
-    
+
     if (series && series.length > 0) {
         // Multiple series - return grouped data format
         const seriesData = series.map((seriesCol: string) => ({
             name: seriesCol,
-            data: xValues.map(x => {
+            data: xValues.map((x) => {
                 const row = queryResult.data.find((r: any) => String(r[xCol]) === x);
-                return row ? (Number(row[seriesCol]) || 0) : 0;
+                return row ? Number(row[seriesCol]) || 0 : 0;
             }),
         }));
-        
+
         return {
             categories: xValues,
             series: seriesData,
@@ -430,7 +413,7 @@ const formatChartData = (queryResult: any, config: any) => {
         // Simple format for basic charts
         return queryResult.data.map((row: any) => ({
             name: String(row[xCol] || ''),
-            value: Number(row[yCol] || 0)
+            value: Number(row[yCol] || 0),
         }));
     }
 };
@@ -441,10 +424,10 @@ const loadingWidgets = ref<Set<string>>(new Set());
 
 const loadWidgetData = async (widget: Widget) => {
     if (!widget.query_id || !widget.id) return;
-    
+
     const widgetKey = String(widget.id);
     loadingWidgets.value.add(widgetKey);
-    
+
     try {
         const data = await executeQuery(widget);
         console.log(`Loaded data for widget ${widgetKey}:`, data);
@@ -461,14 +444,14 @@ const loadWidgetData = async (widget: Widget) => {
 // Load data for all widgets on mount
 onMounted(async () => {
     widgets.value = props.dashboard.widgets || [];
-    
+
     // Ensure each widget has a query property
     widgets.value.forEach((widget) => {
         if (widget.query_id && !widget.savedQuery && !widget.query) {
-            widget.query = props.availableQueries.find(q => q.id === widget.query_id);
+            widget.query = props.availableQueries.find((q) => q.id === widget.query_id);
         }
     });
-    
+
     // Create proper layout items with correct structure
     const layoutItems = widgets.value.map((widget, index) => ({
         x: widget.layout?.x ?? (index % 3) * 4,
@@ -477,12 +460,12 @@ onMounted(async () => {
         h: widget.layout?.h ?? 4,
         i: String(widget.id), // Use string ID directly
     }));
-    
+
     layout.value = layoutItems;
-    
+
     console.log('Initialized widgets:', widgets.value);
     console.log('Initialized layout:', layout.value);
-    
+
     // Load data for all widgets
     for (const widget of widgets.value) {
         if (widget.query_id) {
@@ -501,11 +484,9 @@ onMounted(async () => {
             <div class="flex items-center justify-between">
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight">Edit Dashboard</h1>
-                    <p class="text-muted-foreground">
-                        Drag and drop widgets to customize your dashboard
-                    </p>
+                    <p class="text-muted-foreground">Drag and drop widgets to customize your dashboard</p>
                 </div>
-                
+
                 <div class="flex gap-2">
                     <Button variant="outline" @click="showAddWidget = true">
                         <Plus class="mr-2 h-4 w-4" />
@@ -519,8 +500,8 @@ onMounted(async () => {
             </div>
 
             <!-- Grid Layout -->
-            <div class="flex-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-4 overflow-auto">
-                <div class="min-h-[800px]" style="position: relative; width: 100%;">
+            <div class="flex-1 overflow-auto rounded-lg bg-gray-100 p-4 dark:bg-gray-800">
+                <div class="min-h-[800px]" style="position: relative; width: 100%">
                     <GridLayout
                         :layout="layout"
                         :col-num="colNum"
@@ -535,112 +516,101 @@ onMounted(async () => {
                         :auto-size="true"
                         @layout-updated="layoutUpdated"
                     >
-                        <GridItem
-                            v-for="item in layout"
-                            :key="item.i"
-                            :x="item.x"
-                            :y="item.y"
-                            :w="item.w"
-                            :h="item.h"
-                            :i="item.i"
-                        >
-                        <div
-                            class="h-full flex flex-col bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm overflow-hidden"
-                        >
-                            <div class="flex items-center justify-between p-3 border-b">
-                                <div class="flex items-center gap-2">
-                                    <GripVertical class="h-4 w-4 text-muted-foreground cursor-move" />
-                                    <h3 class="font-medium text-sm">
-                                        {{ getWidgetForItem(item)?.title || 'Untitled Widget' }}
-                                    </h3>
-                                </div>
-                                <div class="flex gap-1">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        @click="configureWidget(getWidgetForItem(item)!)"
-                                    >
-                                        <Settings class="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        @click="deleteWidget(getWidgetForItem(item)!)"
-                                    >
-                                        <Trash2 class="h-4 w-4 text-red-500" />
-                                    </Button>
-                                </div>
-                            </div>
-                            <div class="flex-1 p-4 overflow-hidden">
-                                <div v-if="getWidgetForItem(item)" class="h-full">
-                                    <div v-if="loadingWidgets.has(item.i)" class="flex items-center justify-center h-full">
-                                        <div class="text-muted-foreground">Loading...</div>
+                        <GridItem v-for="item in layout" :key="item.i" :x="item.x" :y="item.y" :w="item.w" :h="item.h" :i="item.i">
+                            <div
+                                class="flex h-full flex-col overflow-hidden rounded-lg border border-gray-300 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900"
+                            >
+                                <div class="flex items-center justify-between border-b p-3">
+                                    <div class="flex items-center gap-2">
+                                        <GripVertical class="h-4 w-4 cursor-move text-muted-foreground" />
+                                        <h3 class="text-sm font-medium">
+                                            {{ getWidgetForItem(item)?.title || 'Untitled Widget' }}
+                                        </h3>
                                     </div>
-                                    <div v-else-if="widgetData[item.i]" class="h-full">
-                                        <!-- Chart Widget -->
-                                        <component
-                                            v-if="getWidgetForItem(item)?.type === 'chart' && getWidgetForItem(item)?.config?.chartType"
-                                            :is="{
-                                                bar: BarChart,
-                                                line: LineChart,
-                                                pie: PieChart,
-                                                scatter: ScatterChart
-                                            }[getWidgetForItem(item)!.config.chartType]"
-                                            :data="formatChartData(widgetData[item.i], getWidgetForItem(item)!.config)"
-                                            :config="getWidgetForItem(item)!.config"
-                                            class="w-full h-full"
-                                        />
-                                        
-                                        <!-- Table Widget -->
-                                        <div v-else-if="getWidgetForItem(item)?.type === 'table'" class="overflow-auto h-full">
-                                            <table class="min-w-full divide-y divide-gray-200">
-                                                <thead class="bg-gray-50">
-                                                    <tr>
-                                                        <th
-                                                            v-for="col in widgetData[item.i].columns"
-                                                            :key="col"
-                                                            class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                                        >
-                                                            {{ col }}
-                                                        </th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody class="bg-white divide-y divide-gray-200">
-                                                    <tr v-for="(row, idx) in widgetData[item.i].data.slice(0, 10)" :key="idx">
-                                                        <td
-                                                            v-for="col in widgetData[item.i].columns"
-                                                            :key="col"
-                                                            class="px-4 py-2 whitespace-nowrap text-sm text-gray-900"
-                                                        >
-                                                            {{ row[col] }}
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
+                                    <div class="flex gap-1">
+                                        <Button variant="ghost" size="sm" @click="configureWidget(getWidgetForItem(item)!)">
+                                            <Settings class="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="sm" @click="deleteWidget(getWidgetForItem(item)!)">
+                                            <Trash2 class="h-4 w-4 text-red-500" />
+                                        </Button>
+                                    </div>
+                                </div>
+                                <div class="flex-1 overflow-hidden p-4">
+                                    <div v-if="getWidgetForItem(item)" class="h-full">
+                                        <div v-if="loadingWidgets.has(item.i)" class="flex h-full items-center justify-center">
+                                            <div class="text-muted-foreground">Loading...</div>
                                         </div>
-                                        
-                                        <!-- Metric Widget -->
-                                        <div v-else-if="getWidgetForItem(item)?.type === 'metric'" class="flex items-center justify-center h-full">
-                                            <div class="text-center">
-                                                <div class="text-4xl font-bold text-gray-900">
-                                                    {{ widgetData[item.i].data[0]?.[widgetData[item.i].columns[0]] || 'N/A' }}
-                                                </div>
-                                                <div class="text-sm text-muted-foreground mt-2">
-                                                    {{ widgetData[item.i].columns[0] }}
+                                        <div v-else-if="widgetData[item.i]" class="h-full">
+                                            <!-- Chart Widget -->
+                                            <component
+                                                v-if="getWidgetForItem(item)?.type === 'chart' && getWidgetForItem(item)?.config?.chartType"
+                                                :is="
+                                                    {
+                                                        bar: BarChart,
+                                                        line: LineChart,
+                                                        pie: PieChart,
+                                                        scatter: ScatterChart,
+                                                    }[getWidgetForItem(item)!.config.chartType]
+                                                "
+                                                :data="formatChartData(widgetData[item.i], getWidgetForItem(item)!.config)"
+                                                :config="getWidgetForItem(item)!.config"
+                                                class="h-full w-full"
+                                            />
+
+                                            <!-- Table Widget -->
+                                            <div v-else-if="getWidgetForItem(item)?.type === 'table'" class="h-full overflow-auto">
+                                                <table class="min-w-full divide-y divide-gray-200">
+                                                    <thead class="bg-gray-50">
+                                                        <tr>
+                                                            <th
+                                                                v-for="col in widgetData[item.i].columns"
+                                                                :key="col"
+                                                                class="px-4 py-2 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+                                                            >
+                                                                {{ col }}
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody class="divide-y divide-gray-200 bg-white">
+                                                        <tr v-for="(row, idx) in widgetData[item.i].data.slice(0, 10)" :key="idx">
+                                                            <td
+                                                                v-for="col in widgetData[item.i].columns"
+                                                                :key="col"
+                                                                class="px-4 py-2 text-sm whitespace-nowrap text-gray-900"
+                                                            >
+                                                                {{ row[col] }}
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            <!-- Metric Widget -->
+                                            <div
+                                                v-else-if="getWidgetForItem(item)?.type === 'metric'"
+                                                class="flex h-full items-center justify-center"
+                                            >
+                                                <div class="text-center">
+                                                    <div class="text-4xl font-bold text-gray-900">
+                                                        {{ widgetData[item.i].data[0]?.[widgetData[item.i].columns[0]] || 'N/A' }}
+                                                    </div>
+                                                    <div class="mt-2 text-sm text-muted-foreground">
+                                                        {{ widgetData[item.i].columns[0] }}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div v-else class="text-center text-muted-foreground h-full flex items-center justify-center">
-                                        No data available
+                                        <div v-else class="flex h-full items-center justify-center text-center text-muted-foreground">
+                                            No data available
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
                         </GridItem>
                     </GridLayout>
 
-                    <div v-if="widgets.length === 0" class="flex items-center justify-center h-96 text-muted-foreground">
+                    <div v-if="widgets.length === 0" class="flex h-96 items-center justify-center text-muted-foreground">
                         Click "Add Widget" to start building your dashboard
                     </div>
                 </div>
@@ -652,27 +622,21 @@ onMounted(async () => {
             <DialogContent class="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Add Widget</DialogTitle>
-                    <DialogDescription>
-                        Select a query to visualize on your dashboard
-                    </DialogDescription>
+                    <DialogDescription> Select a query to visualize on your dashboard </DialogDescription>
                 </DialogHeader>
-                
+
                 <div class="space-y-4">
                     <div>
                         <Label>Query</Label>
-                        <Select 
+                        <Select
                             :model-value="String(newWidget.query_id || '')"
-                            @update:model-value="(value) => newWidget.query_id = value ? Number(value) : null"
+                            @update:model-value="(value) => (newWidget.query_id = value ? Number(value) : null)"
                         >
                             <SelectTrigger>
                                 <SelectValue placeholder="Select a query" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem
-                                    v-for="query in availableQueries"
-                                    :key="query.id"
-                                    :value="String(query.id)"
-                                >
+                                <SelectItem v-for="query in availableQueries" :key="query.id" :value="String(query.id)">
                                     {{ query.name }} ({{ query.data_source.name }})
                                 </SelectItem>
                             </SelectContent>
@@ -681,10 +645,7 @@ onMounted(async () => {
 
                     <div>
                         <Label>Widget Type</Label>
-                        <Select 
-                            :model-value="newWidget.type"
-                            @update:model-value="(value) => newWidget.type = value"
-                        >
+                        <Select :model-value="newWidget.type" @update:model-value="(value) => (newWidget.type = value)">
                             <SelectTrigger>
                                 <SelectValue />
                             </SelectTrigger>
@@ -698,10 +659,7 @@ onMounted(async () => {
 
                     <div v-if="newWidget.type === 'chart'">
                         <Label>Chart Type</Label>
-                        <Select 
-                            :model-value="newWidget.config!.chartType"
-                            @update:model-value="(value) => newWidget.config!.chartType = value"
-                        >
+                        <Select :model-value="newWidget.config!.chartType" @update:model-value="(value) => (newWidget.config!.chartType = value)">
                             <SelectTrigger>
                                 <SelectValue />
                             </SelectTrigger>
@@ -716,21 +674,13 @@ onMounted(async () => {
 
                     <div>
                         <Label>Title</Label>
-                        <Input
-                            v-model="newWidget.title"
-                            type="text"
-                            placeholder="Widget title"
-                        />
+                        <Input v-model="newWidget.title" type="text" placeholder="Widget title" />
                     </div>
                 </div>
 
-                <div class="flex justify-end gap-2 mt-4">
-                    <Button variant="outline" @click="showAddWidget = false">
-                        Cancel
-                    </Button>
-                    <Button @click="addWidget" :disabled="!newWidget.query_id">
-                        Add Widget
-                    </Button>
+                <div class="mt-4 flex justify-end gap-2">
+                    <Button variant="outline" @click="showAddWidget = false"> Cancel </Button>
+                    <Button @click="addWidget" :disabled="!newWidget.query_id"> Add Widget </Button>
                 </div>
             </DialogContent>
         </Dialog>
@@ -740,19 +690,13 @@ onMounted(async () => {
             <DialogContent class="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Configure Widget</DialogTitle>
-                    <DialogDescription>
-                        Update widget settings and visualization options
-                    </DialogDescription>
+                    <DialogDescription> Update widget settings and visualization options </DialogDescription>
                 </DialogHeader>
-                
+
                 <div class="space-y-4">
                     <div>
                         <Label>Title</Label>
-                        <Input
-                            v-model="selectedWidget.title"
-                            type="text"
-                            placeholder="Widget title"
-                        />
+                        <Input v-model="selectedWidget.title" type="text" placeholder="Widget title" />
                     </div>
 
                     <div v-if="selectedWidget.type === 'chart'">
@@ -771,13 +715,9 @@ onMounted(async () => {
                     </div>
                 </div>
 
-                <div class="flex justify-end gap-2 mt-4">
-                    <Button variant="outline" @click="showConfigureWidget = false">
-                        Cancel
-                    </Button>
-                    <Button @click="updateWidget">
-                        Update Widget
-                    </Button>
+                <div class="mt-4 flex justify-end gap-2">
+                    <Button variant="outline" @click="showConfigureWidget = false"> Cancel </Button>
+                    <Button @click="updateWidget"> Update Widget </Button>
                 </div>
             </DialogContent>
         </Dialog>
@@ -787,9 +727,7 @@ onMounted(async () => {
 <style>
 /* Grid background pattern */
 .vue-grid-layout {
-    background-image: 
-        linear-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+    background-image: linear-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
     background-size: 50px 50px;
     background-position: -1px -1px;
     position: relative !important;
@@ -837,7 +775,7 @@ onMounted(async () => {
 }
 
 .vue-grid-item > .vue-resizable-handle::after {
-    content: "";
+    content: '';
     position: absolute;
     right: 3px;
     bottom: 3px;

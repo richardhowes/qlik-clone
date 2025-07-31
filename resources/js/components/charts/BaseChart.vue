@@ -1,29 +1,14 @@
 <script setup lang="ts">
-import VChart from 'vue-echarts';
+import { useChart } from '@/composables/useChart';
+import type { EChartsOption } from 'echarts';
+import { DatasetComponent, GridComponent, LegendComponent, TitleComponent, TooltipComponent, TransformComponent } from 'echarts/components';
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
-import {
-    TitleComponent,
-    TooltipComponent,
-    LegendComponent,
-    GridComponent,
-    DatasetComponent,
-    TransformComponent,
-} from 'echarts/components';
-import type { EChartsOption } from 'echarts';
-import { computed, ref, watch } from 'vue';
-import { useChart } from '@/composables/useChart';
+import { computed, ref } from 'vue';
+import VChart from 'vue-echarts';
 
 // Register ECharts components
-use([
-    CanvasRenderer,
-    TitleComponent,
-    TooltipComponent,
-    LegendComponent,
-    GridComponent,
-    DatasetComponent,
-    TransformComponent,
-]);
+use([CanvasRenderer, TitleComponent, TooltipComponent, LegendComponent, GridComponent, DatasetComponent, TransformComponent]);
 
 interface Props {
     option: EChartsOption;
@@ -98,4 +83,5 @@ defineExpose({
 <style scoped>
 .chart {
     transition: all 0.3s ease;
-}</style>
+}
+</style>

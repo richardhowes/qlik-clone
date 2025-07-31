@@ -6,7 +6,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { AlertCircle, CheckCircle, Database, Plus, RefreshCw, Search, Trash2, XCircle } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { computed, ref } from 'vue';
 
 interface DataSource {
     id: number;
@@ -46,12 +46,9 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const filteredDataSources = computed(() => {
     if (!searchQuery.value) return props.dataSources.data;
-    
+
     const query = searchQuery.value.toLowerCase();
-    return props.dataSources.data.filter(source => 
-        source.name.toLowerCase().includes(query) ||
-        source.type.toLowerCase().includes(query)
-    );
+    return props.dataSources.data.filter((source) => source.name.toLowerCase().includes(query) || source.type.toLowerCase().includes(query));
 });
 
 const getStatusIcon = (status: string) => {
@@ -87,14 +84,18 @@ const formatType = (type: string) => {
 
 const testConnection = (dataSource: DataSource) => {
     testingConnections.value.add(dataSource.id);
-    
-    router.post(route('data-sources.test', dataSource.id), {}, {
-        preserveScroll: true,
-        preserveState: true,
-        onFinish: () => {
-            testingConnections.value.delete(dataSource.id);
+
+    router.post(
+        route('data-sources.test', dataSource.id),
+        {},
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onFinish: () => {
+                testingConnections.value.delete(dataSource.id);
+            },
         },
-    });
+    );
 };
 
 const deleteDataSource = (dataSource: DataSource) => {
@@ -113,19 +114,13 @@ const deleteDataSource = (dataSource: DataSource) => {
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight">Data Sources</h1>
-                    <p class="text-muted-foreground">
-                        Manage your database connections and data sources
-                    </p>
+                    <p class="text-muted-foreground">Manage your database connections and data sources</p>
                 </div>
-                
+
                 <div class="flex gap-2">
                     <div class="relative">
-                        <Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            v-model="searchQuery"
-                            placeholder="Search sources..."
-                            class="pl-8 w-[200px] sm:w-[300px]"
-                        />
+                        <Search class="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input v-model="searchQuery" placeholder="Search sources..." class="w-[200px] pl-8 sm:w-[300px]" />
                     </div>
                     <Button as-child>
                         <Link :href="route('data-sources.create')">
@@ -141,9 +136,7 @@ const deleteDataSource = (dataSource: DataSource) => {
                 <div class="text-center">
                     <Database class="mx-auto h-12 w-12 text-muted-foreground/50" />
                     <h3 class="mt-4 text-lg font-semibold">No data sources yet</h3>
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Connect a database to start building dashboards
-                    </p>
+                    <p class="mt-2 text-sm text-muted-foreground">Connect a database to start building dashboards</p>
                     <Button as-child class="mt-4">
                         <Link :href="route('data-sources.create')">
                             <Plus class="mr-2 h-4 w-4" />
@@ -162,10 +155,7 @@ const deleteDataSource = (dataSource: DataSource) => {
                                 <Database class="h-5 w-5 text-muted-foreground" />
                                 <div>
                                     <CardTitle class="text-lg">
-                                        <Link 
-                                            :href="route('data-sources.show', source.id)"
-                                            class="hover:underline"
-                                        >
+                                        <Link :href="route('data-sources.show', source.id)" class="hover:underline">
                                             {{ source.name }}
                                         </Link>
                                     </CardTitle>
@@ -176,10 +166,7 @@ const deleteDataSource = (dataSource: DataSource) => {
                             </div>
                             <div class="flex items-center gap-2">
                                 <div class="flex items-center gap-1">
-                                    <component
-                                        :is="getStatusIcon(source.status)"
-                                        :class="['h-4 w-4', getStatusColor(source.status)]"
-                                    />
+                                    <component :is="getStatusIcon(source.status)" :class="['h-4 w-4', getStatusColor(source.status)]" />
                                     <span :class="['text-sm capitalize', getStatusColor(source.status)]">
                                         {{ source.status }}
                                     </span>
@@ -190,50 +177,27 @@ const deleteDataSource = (dataSource: DataSource) => {
                     <CardContent>
                         <div class="flex items-center justify-between">
                             <p class="text-sm text-muted-foreground">
-                                Last synced: 
+                                Last synced:
                                 <span v-if="source.last_sync_at">
                                     {{ new Date(source.last_sync_at).toLocaleString() }}
                                 </span>
                                 <span v-else>Never</span>
                             </p>
                             <div class="flex gap-2">
-                                <Button
-                                    v-if="source.status === 'active'"
-                                    variant="outline"
-                                    size="sm"
-                                    as-child
-                                >
+                                <Button v-if="source.status === 'active'" variant="outline" size="sm" as-child>
                                     <Link :href="route('query.editor', source.id)">
                                         <Database class="mr-2 h-4 w-4" />
                                         Query
                                     </Link>
                                 </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    @click="testConnection(source)"
-                                    :disabled="testingConnections.has(source.id)"
-                                >
-                                    <RefreshCw 
-                                        class="mr-2 h-4 w-4"
-                                        :class="{ 'animate-spin': testingConnections.has(source.id) }"
-                                    />
+                                <Button variant="outline" size="sm" @click="testConnection(source)" :disabled="testingConnections.has(source.id)">
+                                    <RefreshCw class="mr-2 h-4 w-4" :class="{ 'animate-spin': testingConnections.has(source.id) }" />
                                     Test
                                 </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    as-child
-                                >
-                                    <Link :href="route('data-sources.edit', source.id)">
-                                        Edit
-                                    </Link>
+                                <Button variant="outline" size="sm" as-child>
+                                    <Link :href="route('data-sources.edit', source.id)"> Edit </Link>
                                 </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    @click="deleteDataSource(source)"
-                                >
+                                <Button variant="outline" size="sm" @click="deleteDataSource(source)">
                                     <Trash2 class="h-4 w-4" />
                                 </Button>
                             </div>
@@ -247,9 +211,7 @@ const deleteDataSource = (dataSource: DataSource) => {
                 <div class="text-center">
                     <Search class="mx-auto h-12 w-12 text-muted-foreground/50" />
                     <h3 class="mt-4 text-lg font-semibold">No results found</h3>
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Try adjusting your search terms
-                    </p>
+                    <p class="mt-2 text-sm text-muted-foreground">Try adjusting your search terms</p>
                 </div>
             </div>
         </div>

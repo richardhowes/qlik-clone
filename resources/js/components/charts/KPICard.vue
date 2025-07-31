@@ -58,10 +58,7 @@ const formattedChange = computed(() => {
             <CardTitle class="text-sm font-medium">
                 {{ title }}
             </CardTitle>
-            <component
-                :is="icon || TrendingUp"
-                class="h-4 w-4 text-muted-foreground"
-            />
+            <component :is="icon || TrendingUp" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
             <div v-if="loading" class="space-y-2">
@@ -74,11 +71,7 @@ const formattedChange = computed(() => {
                 </div>
                 <div class="flex items-center gap-2 text-xs">
                     <span v-if="change" :class="changeColor" class="flex items-center gap-1">
-                        <component
-                            v-if="trendIcon"
-                            :is="trendIcon"
-                            class="h-3 w-3"
-                        />
+                        <component v-if="trendIcon" :is="trendIcon" class="h-3 w-3" />
                         {{ formattedChange }}
                     </span>
                     <span v-if="changeLabel" class="text-muted-foreground">
@@ -90,12 +83,9 @@ const formattedChange = computed(() => {
                 </CardDescription>
             </template>
         </CardContent>
-        
+
         <!-- Optional background decoration -->
-        <div
-            v-if="icon"
-            class="absolute -right-4 -top-4 h-20 w-20 opacity-5"
-        >
+        <div v-if="icon" class="absolute -top-4 -right-4 h-20 w-20 opacity-5">
             <component :is="icon" class="h-full w-full" />
         </div>
     </Card>

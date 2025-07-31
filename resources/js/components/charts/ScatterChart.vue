@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import BaseChart from './BaseChart.vue';
 import { ScatterChart } from 'echarts/charts';
 import { use } from 'echarts/core';
 import { computed } from 'vue';
+import BaseChart from './BaseChart.vue';
 
 // Register scatter chart
 use([ScatterChart]);
@@ -54,7 +54,7 @@ const chartOptions = computed(() => ({
     series: [
         {
             type: 'scatter',
-            data: props.data.map(point => [point.x, point.y, point.name]),
+            data: props.data.map((point) => [point.x, point.y, point.name]),
             symbolSize: 8,
             itemStyle: {
                 color: '#3b82f6',
@@ -65,8 +65,5 @@ const chartOptions = computed(() => ({
 </script>
 
 <template>
-    <BaseChart
-        :option="chartOptions"
-        :height="height"
-    />
+    <BaseChart :option="chartOptions" :height="height" />
 </template>
