@@ -27,82 +27,83 @@ class AIQueryService
 
         // For debugging, let's skip cache temporarily
         // return Cache::remember($cacheKey, 300, function () use ($question, $dataSource) {
-            try {
-                Log::info('Starting AI query translation', [
-                    'question' => $question,
-                    'data_source_id' => $dataSource->id,
-                ]);
-                
-                $schema = $this->schemaAnalyzer->getSchemaContext($dataSource);
-                
-                Log::info('Schema context retrieved', [
-                    'table_count' => count($schema),
-                    'tables' => array_keys($schema),
-                ]);
+        try {
+            Log::info('Starting AI query translation', [
+                'question' => $question,
+                'data_source_id' => $dataSource->id,
+            ]);
 
-                // If schema is empty, provide a helpful error
-                if (empty($schema)) {
-                    throw new \Exception('No schema information available for this data source. Please ensure the data source is properly connected.');
-                }
+            $schema = $this->schemaAnalyzer->getSchemaContext($dataSource);
 
-                $prompt = $this->buildTranslationPrompt($question, $schema);
-                
-                Log::info('Sending prompt to AI', [
-                    'prompt_length' => strlen($prompt),
-                ]);
+            Log::info('Schema context retrieved', [
+                'table_count' => count($schema),
+                'tables' => array_keys($schema),
+            ]);
 
-                $response = Prism::text()
-                    ->using(Provider::OpenAI, 'gpt-4o-mini')
-                    ->withPrompt($prompt)
-                    ->withMaxTokens(500)
-                    ->withSystemPrompt('You are a SQL expert. Generate only valid SQL queries without explanations.')
-                    ->asText();
-
-                $sql = $this->extractSQL($response->text);
-                
-                Log::info('SQL generated', [
-                    'sql' => $sql,
-                ]);
-
-                $validation = $this->validateGeneratedSQL($sql);
-                if (! $validation['valid']) {
-                    throw new \Exception($validation['error']);
-                }
-
-                return [
-                    'success' => true,
-                    'sql' => $sql,
-                    'explanation' => $this->generateQueryExplanation($question, $sql),
-                ];
-            } catch (\Exception $e) {
-                Log::error('AI Query translation failed', [
-                    'question' => $question,
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
-                ]);
-
-                // Provide more specific error messages
-                $errorMessage = 'Failed to translate your question.';
-                
-                if (str_contains($e->getMessage(), 'cURL error 6') || str_contains($e->getMessage(), 'Could not resolve host')) {
-                    // Try to provide a basic fallback query
-                    $fallbackResult = $this->generateFallbackQuery($question, $schema);
-                    if ($fallbackResult['success']) {
-                        Log::info('Using fallback query due to network issues');
-                        return $fallbackResult;
-                    }
-                    $errorMessage = 'Unable to connect to AI service. Please check your internet connection.';
-                } elseif (str_contains($e->getMessage(), 'No schema information')) {
-                    $errorMessage = $e->getMessage();
-                } elseif (str_contains($e->getMessage(), 'API key')) {
-                    $errorMessage = 'OpenAI API key is not configured. Please check your configuration.';
-                }
-
-                return [
-                    'success' => false,
-                    'error' => $errorMessage,
-                ];
+            // If schema is empty, provide a helpful error
+            if (empty($schema)) {
+                throw new \Exception('No schema information available for this data source. Please ensure the data source is properly connected.');
             }
+
+            $prompt = $this->buildTranslationPrompt($question, $schema);
+
+            Log::info('Sending prompt to AI', [
+                'prompt_length' => strlen($prompt),
+            ]);
+
+            $response = Prism::text()
+                ->using(Provider::OpenAI, 'gpt-4o-mini')
+                ->withPrompt($prompt)
+                ->withMaxTokens(500)
+                ->withSystemPrompt('You are a SQL expert. Generate only valid SQL queries without explanations.')
+                ->asText();
+
+            $sql = $this->extractSQL($response->text);
+
+            Log::info('SQL generated', [
+                'sql' => $sql,
+            ]);
+
+            $validation = $this->validateGeneratedSQL($sql);
+            if (! $validation['valid']) {
+                throw new \Exception($validation['error']);
+            }
+
+            return [
+                'success' => true,
+                'sql' => $sql,
+                'explanation' => $this->generateQueryExplanation($question, $sql),
+            ];
+        } catch (\Exception $e) {
+            Log::error('AI Query translation failed', [
+                'question' => $question,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            // Provide more specific error messages
+            $errorMessage = 'Failed to translate your question.';
+
+            if (str_contains($e->getMessage(), 'cURL error 6') || str_contains($e->getMessage(), 'Could not resolve host')) {
+                // Try to provide a basic fallback query
+                $fallbackResult = $this->generateFallbackQuery($question, $schema);
+                if ($fallbackResult['success']) {
+                    Log::info('Using fallback query due to network issues');
+
+                    return $fallbackResult;
+                }
+                $errorMessage = 'Unable to connect to AI service. Please check your internet connection.';
+            } elseif (str_contains($e->getMessage(), 'No schema information')) {
+                $errorMessage = $e->getMessage();
+            } elseif (str_contains($e->getMessage(), 'API key')) {
+                $errorMessage = 'OpenAI API key is not configured. Please check your configuration.';
+            }
+
+            return [
+                'success' => false,
+                'error' => $errorMessage,
+            ];
+        }
         // });
     }
 
@@ -152,10 +153,19 @@ Requirements:
 - Do NOT add LIMIT clause (it will be added automatically)
 - Make reasonable assumptions about column meanings based on their names
 
+IMPORTANT - For comparison queries:
+- When comparing different time periods (e.g., "2023 vs 2024", "compare X to Y"), include ALL dimensions in SELECT
+- For year-over-year comparisons: SELECT year, month, metric ORDER BY month, year
+- For month-over-month: SELECT month, year, metric ORDER BY year, month
+- Include the comparison dimension (year, category, etc.) as a separate column
+- Example: "compare 2023 to 2024" should return: SELECT YEAR(date) as year, MONTH(date) as month, SUM(revenue) as total FROM table WHERE YEAR(date) IN (2023, 2024) GROUP BY year, month ORDER BY month, year
+
 Example patterns:
 - For "revenue last month": SUM columns related to money/amounts where date is in previous month
 - For "count of X": COUNT(*) or COUNT(DISTINCT column) as appropriate
 - For "average X": AVG(column) for numeric values
+- For "compare 2023 to 2024": Include year as a grouping column, filter for both years
+- For "X vs Y": Structure data to show both X and Y as separate series
 PROMPT;
     }
 
@@ -269,75 +279,76 @@ PROMPT;
 
         return array_slice($questions, 0, 3);
     }
-    
+
     protected function generateFallbackQuery(string $question, array $schema): array
     {
         try {
             // Basic pattern matching for common queries
             $questionLower = strtolower($question);
-            
+
             // Find reservation-related tables
-            $reservationTables = array_filter(array_keys($schema), function($table) {
+            $reservationTables = array_filter(array_keys($schema), function ($table) {
                 return str_contains(strtolower($table), 'reserv');
             });
-            
+
             if (empty($reservationTables)) {
                 return ['success' => false];
             }
-            
+
             $mainTable = reset($reservationTables); // Get first reservation table
             $columns = $schema[$mainTable] ?? [];
-            
+
             // Look for revenue/amount columns
             $revenueColumns = [];
             foreach ($columns as $col) {
                 $colName = strtolower($col['name']);
-                if (str_contains($colName, 'revenue') || 
-                    str_contains($colName, 'amount') || 
+                if (str_contains($colName, 'revenue') ||
+                    str_contains($colName, 'amount') ||
                     str_contains($colName, 'total') ||
                     str_contains($colName, 'price')) {
                     $revenueColumns[] = $col['name'];
                 }
             }
-            
+
             // Look for date columns
             $dateColumns = [];
             foreach ($columns as $col) {
                 $colName = strtolower($col['name']);
-                if (str_contains($colName, 'date') || 
+                if (str_contains($colName, 'date') ||
                     str_contains($colName, 'created') ||
                     str_contains($colName, 'time')) {
                     $dateColumns[] = $col['name'];
                 }
             }
-            
+
             // Generate a basic query based on patterns
-            if (str_contains($questionLower, 'revenue') && 
-                str_contains($questionLower, 'last month') && 
-                !empty($revenueColumns) && 
-                !empty($dateColumns)) {
-                
+            if (str_contains($questionLower, 'revenue') &&
+                str_contains($questionLower, 'last month') &&
+                ! empty($revenueColumns) &&
+                ! empty($dateColumns)) {
+
                 $revenueCol = $revenueColumns[0];
                 $dateCol = $dateColumns[0];
-                
+
                 $sql = "SELECT SUM($revenueCol) as total_revenue
 FROM $mainTable
 WHERE $dateCol >= DATE_SUB(CURRENT_DATE, INTERVAL 1 MONTH)
 AND $dateCol < CURRENT_DATE";
-                
+
                 return [
                     'success' => true,
                     'sql' => $sql,
                     'explanation' => 'This query calculates the total revenue from the last month. (Note: This is a basic query generated offline - the AI service is currently unavailable)',
                 ];
             }
-            
+
             return ['success' => false];
-            
+
         } catch (\Exception $e) {
             Log::error('Fallback query generation failed', [
                 'error' => $e->getMessage(),
             ]);
+
             return ['success' => false];
         }
     }

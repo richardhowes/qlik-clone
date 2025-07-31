@@ -61,7 +61,7 @@ class VisualizationService
         }
     }
 
-    protected function analyzeDataCharacteristics(array $queryResults): array
+    public function analyzeDataCharacteristics(array $queryResults): array
     {
         $data = $queryResults['data'];
         $columns = $queryResults['columns'] ?? [];
@@ -75,6 +75,8 @@ class VisualizationService
             'numeric_columns' => [],
             'categorical_columns' => [],
             'time_columns' => [],
+            'comparison_pattern' => null,
+            'grouping_columns' => [],
         ];
 
         if (empty($data)) {
@@ -101,11 +103,45 @@ class VisualizationService
             }
         }
 
+        // Detect comparison patterns
+        $characteristics['comparison_pattern'] = $this->detectComparisonPattern($data, $columns, $characteristics);
+
         return $characteristics;
     }
 
     protected function getVisualizationRecommendation(array $characteristics, string $question): array
     {
+        // Check for comparison patterns first
+        if ($characteristics['comparison_pattern']) {
+            $pattern = $characteristics['comparison_pattern'];
+
+            if ($pattern['type'] === 'year_over_year') {
+                return [
+                    'type' => 'line',
+                    'reason' => 'Line charts are ideal for comparing trends across different years',
+                    'config' => [
+                        'xAxis' => $pattern['category_column'],
+                        'yAxis' => $pattern['metric_columns'][0] ?? null,
+                        'series' => $pattern['grouping_column'],
+                        'comparison' => true,
+                    ],
+                ];
+            }
+
+            if ($pattern['type'] === 'category_comparison') {
+                return [
+                    'type' => 'bar',
+                    'reason' => 'Grouped bar charts are excellent for comparing values across multiple categories',
+                    'config' => [
+                        'xAxis' => $pattern['category_column'],
+                        'yAxis' => $pattern['metric_columns'][0] ?? null,
+                        'series' => $pattern['grouping_column'],
+                        'comparison' => true,
+                    ],
+                ];
+            }
+        }
+
         // Time series data
         if ($characteristics['has_time_series'] && $characteristics['has_numeric_data']) {
             return [
@@ -121,7 +157,7 @@ class VisualizationService
         // Categorical comparisons
         if ($characteristics['has_categories'] && $characteristics['has_numeric_data']) {
             // For aggregated queries (like totals by month), always use bar chart
-            if ($characteristics['row_count'] < 20 && !empty($characteristics['categorical_columns'])) {
+            if ($characteristics['row_count'] < 20 && ! empty($characteristics['categorical_columns'])) {
                 return [
                     'type' => 'pie',
                     'reason' => 'Pie charts work well for showing parts of a whole with few categories',
@@ -322,6 +358,112 @@ class VisualizationService
                 'config' => [],
             ],
             'alternatives' => [],
+        ];
+    }
+
+    protected function detectComparisonPattern(array $data, array $columns, array $characteristics): ?array
+    {
+        if (empty($data)) {
+            return null;
+        }
+
+        // Check for year column (common comparison dimension)
+        $yearColumn = null;
+        $monthColumn = null;
+        foreach ($columns as $col) {
+            $colNameLower = strtolower($col['name']);
+            if ($colNameLower === 'year' || str_contains($colNameLower, 'year')) {
+                $yearColumn = $col['name'];
+            }
+            if ($colNameLower === 'month' || str_contains($colNameLower, 'month')) {
+                $monthColumn = $col['name'];
+            }
+        }
+
+        // Year-over-year comparison pattern
+        if ($yearColumn && $monthColumn && ! empty($characteristics['numeric_columns'])) {
+            $years = array_unique(array_column($data, $yearColumn));
+            if (count($years) > 1) {
+                return [
+                    'type' => 'year_over_year',
+                    'grouping_column' => $yearColumn,
+                    'category_column' => $monthColumn,
+                    'metric_columns' => $characteristics['numeric_columns'],
+                    'groups' => $years,
+                ];
+            }
+        }
+
+        // Category comparison pattern (when there's a repeating category)
+        foreach ($characteristics['categorical_columns'] as $catCol) {
+            $uniqueValues = array_unique(array_column($data, $catCol));
+            if (count($uniqueValues) >= 2 && count($uniqueValues) <= 10) {
+                // Check if data repeats for each category
+                $otherColumns = array_diff(
+                    array_column($columns, 'name'),
+                    [$catCol],
+                    $characteristics['numeric_columns']
+                );
+
+                if (! empty($otherColumns)) {
+                    return [
+                        'type' => 'category_comparison',
+                        'grouping_column' => $catCol,
+                        'category_column' => reset($otherColumns),
+                        'metric_columns' => $characteristics['numeric_columns'],
+                        'groups' => $uniqueValues,
+                    ];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public function transformDataForComparison(array $queryResults, array $comparisonPattern): array
+    {
+        if (! $comparisonPattern) {
+            return $queryResults['data'];
+        }
+
+        $data = $queryResults['data'];
+        $groupingCol = $comparisonPattern['grouping_column'];
+        $categoryCol = $comparisonPattern['category_column'];
+        $metricCol = $comparisonPattern['metric_columns'][0] ?? null;
+
+        if (! $metricCol) {
+            return $data;
+        }
+
+        // Transform data into multi-series format
+        $categories = array_unique(array_column($data, $categoryCol));
+        $groups = $comparisonPattern['groups'];
+
+        // Build series data
+        $series = [];
+        foreach ($groups as $group) {
+            $seriesData = [];
+            foreach ($categories as $category) {
+                // Find the value for this group/category combination
+                $value = 0;
+                foreach ($data as $row) {
+                    if ($row[$groupingCol] == $group && $row[$categoryCol] == $category) {
+                        $value = floatval($row[$metricCol]);
+                        break;
+                    }
+                }
+                $seriesData[] = $value;
+            }
+
+            $series[] = [
+                'name' => (string) $group,
+                'data' => $seriesData,
+            ];
+        }
+
+        return [
+            'categories' => array_map('strval', $categories),
+            'series' => $series,
         ];
     }
 }

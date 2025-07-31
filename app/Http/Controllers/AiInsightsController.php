@@ -94,6 +94,16 @@ class AiInsightsController extends Controller
                 $request->question
             );
 
+            // Add comparison pattern to visualization if detected
+            if (isset($visualization['recommendation']['config']['comparison']) &&
+                $visualization['recommendation']['config']['comparison']) {
+                // Get data characteristics through the visualization service
+                $dataWithPattern = $this->visualizationService->analyzeDataCharacteristics($queryResult);
+                if (isset($dataWithPattern['comparison_pattern']) && $dataWithPattern['comparison_pattern']) {
+                    $visualization['recommendation']['comparison_pattern'] = $dataWithPattern['comparison_pattern'];
+                }
+            }
+
             // Generate explanation of results
             $explanation = $this->insightsService->explainQueryResult(
                 $queryResult,
@@ -179,7 +189,7 @@ class AiInsightsController extends Controller
             return response()->json([
                 'success' => false,
                 'insights' => [],
-                'error' => 'Failed to generate insights: ' . $e->getMessage(),
+                'error' => 'Failed to generate insights: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -243,7 +253,7 @@ class AiInsightsController extends Controller
             ], 500);
         }
     }
-    
+
     public function debugDataSource(Request $request)
     {
         $request->validate([
@@ -259,7 +269,7 @@ class AiInsightsController extends Controller
 
         try {
             $schema = app(SchemaAnalyzer::class)->getSchemaContext($dataSource);
-            
+
             return response()->json([
                 'success' => true,
                 'data_source' => [

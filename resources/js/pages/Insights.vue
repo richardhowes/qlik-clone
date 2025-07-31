@@ -34,6 +34,13 @@ interface QueryResult {
             type: string;
             reason: string;
             config: any;
+            comparison_pattern?: {
+                type: string;
+                grouping_column: string;
+                category_column: string;
+                metric_columns: string[];
+                groups: any[];
+            };
         };
         alternatives: Array<{ type: string; reason: string }>;
     };
@@ -106,15 +113,37 @@ const availableVisualizationTypes = computed(() => {
     return allTypes;
 });
 
+const hasChartData = computed(() => {
+    const data = chartData.value;
+    if (Array.isArray(data)) {
+        return data.length > 0;
+    }
+    // For multi-series data format
+    if (data && typeof data === 'object' && 'series' in data) {
+        return data.series && data.series.length > 0;
+    }
+    return false;
+});
+
 const chartData = computed(() => {
     if (!queryResult.value?.result?.data) return [];
 
     const data = queryResult.value.result.data;
     const config = queryResult.value.visualization.recommendation.config;
+    const comparisonPattern = queryResult.value.visualization.recommendation.comparison_pattern;
 
     console.log('Chart type:', selectedVisualizationType.value);
     console.log('Config:', config);
     console.log('Raw data:', data);
+    console.log('Comparison pattern:', comparisonPattern);
+
+    // Check if this is a comparison visualization
+    if (comparisonPattern && ['bar', 'line', 'area'].includes(selectedVisualizationType.value)) {
+        // Transform data for multi-series comparison
+        const transformedData = transformDataForComparison(data, comparisonPattern);
+        console.log('Transformed comparison data:', transformedData);
+        return transformedData;
+    }
 
     // Transform data for bar, line, or area chart (they use the same format)
     if (['bar', 'line', 'area'].includes(selectedVisualizationType.value)) {
@@ -182,6 +211,40 @@ const findBestMetric = (data: any[], columns: any[], index = 0) => {
         return sampleValue !== undefined && !isNaN(Number(sampleValue)) && !col.type?.includes('date');
     });
     return numericColumns[index]?.name || columns[index]?.name;
+};
+
+// Transform data for comparison visualizations (e.g., year-over-year)
+const transformDataForComparison = (data: any[], pattern: any) => {
+    const groupingCol = pattern.grouping_column;
+    const categoryCol = pattern.category_column;
+    const metricCol = pattern.metric_columns[0];
+
+    if (!groupingCol || !categoryCol || !metricCol) {
+        return data;
+    }
+
+    // Get unique categories and groups
+    const categories = [...new Set(data.map((row) => String(row[categoryCol])))];
+    const groups = [...new Set(data.map((row) => String(row[groupingCol])))];
+
+    // Build series data
+    const series = groups.map((group) => {
+        const seriesData = categories.map((category) => {
+            // Find the value for this group/category combination
+            const row = data.find((r) => String(r[groupingCol]) === group && String(r[categoryCol]) === category);
+            return row ? Number(row[metricCol] || 0) : 0;
+        });
+
+        return {
+            name: group,
+            data: seriesData,
+        };
+    });
+
+    return {
+        categories,
+        series,
+    };
 };
 
 const handleSubmit = async () => {
@@ -401,21 +464,21 @@ onMounted(() => {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <div v-if="selectedVisualizationType === 'bar' && chartData.length > 0" class="h-96">
+                            <div v-if="selectedVisualizationType === 'bar' && hasChartData" class="h-96">
                                 <BarChart
                                     :data="chartData"
                                     :x-axis-label="queryResult.visualization.recommendation.config.xAxis"
                                     :y-axis-label="queryResult.visualization.recommendation.config.yAxis"
                                 />
                             </div>
-                            <div v-else-if="selectedVisualizationType === 'line' && chartData.length > 0" class="h-96">
+                            <div v-else-if="selectedVisualizationType === 'line' && hasChartData" class="h-96">
                                 <LineChart
                                     :data="chartData"
                                     :x-axis-label="queryResult.visualization.recommendation.config.xAxis"
                                     :y-axis-label="queryResult.visualization.recommendation.config.yAxis"
                                 />
                             </div>
-                            <div v-else-if="selectedVisualizationType === 'area' && chartData.length > 0" class="h-96">
+                            <div v-else-if="selectedVisualizationType === 'area' && hasChartData" class="h-96">
                                 <LineChart
                                     :data="chartData"
                                     :x-axis-label="queryResult.visualization.recommendation.config.xAxis"
@@ -423,10 +486,10 @@ onMounted(() => {
                                     :area="true"
                                 />
                             </div>
-                            <div v-else-if="selectedVisualizationType === 'pie' && chartData.length > 0" class="h-96">
+                            <div v-else-if="selectedVisualizationType === 'pie' && hasChartData" class="h-96">
                                 <PieChart :data="chartData" />
                             </div>
-                            <div v-else-if="selectedVisualizationType === 'scatter' && chartData.length > 0" class="h-96">
+                            <div v-else-if="selectedVisualizationType === 'scatter' && hasChartData" class="h-96">
                                 <ScatterChart
                                     :data="chartData"
                                     :x-axis-label="queryResult.visualization.recommendation.config?.xAxis"
