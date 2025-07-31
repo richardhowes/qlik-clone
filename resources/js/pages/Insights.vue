@@ -108,8 +108,12 @@ const availableVisualizationTypes = computed(() => {
     // Filter based on data characteristics if needed
     if (!queryResult.value) return allTypes;
 
-    // All types are generally available, but you could add logic here
-    // to filter out inappropriate chart types based on data
+    // Check if there are allowed types specified (for comparisons)
+    const allowedTypes = queryResult.value.visualization.recommendation.allowed_types;
+    if (allowedTypes && allowedTypes.length > 0) {
+        return allTypes.filter(type => allowedTypes.includes(type.type));
+    }
+
     return allTypes;
 });
 
@@ -467,6 +471,7 @@ onMounted(() => {
                             <div v-if="selectedVisualizationType === 'bar' && hasChartData" class="h-96">
                                 <BarChart
                                     :data="chartData"
+                                    :title="queryResult.visualization.recommendation.config.title"
                                     :x-axis-label="queryResult.visualization.recommendation.config.xAxis"
                                     :y-axis-label="queryResult.visualization.recommendation.config.yAxis"
                                 />
@@ -474,6 +479,7 @@ onMounted(() => {
                             <div v-else-if="selectedVisualizationType === 'line' && hasChartData" class="h-96">
                                 <LineChart
                                     :data="chartData"
+                                    :title="queryResult.visualization.recommendation.config.title"
                                     :x-axis-label="queryResult.visualization.recommendation.config.xAxis"
                                     :y-axis-label="queryResult.visualization.recommendation.config.yAxis"
                                 />
@@ -481,17 +487,22 @@ onMounted(() => {
                             <div v-else-if="selectedVisualizationType === 'area' && hasChartData" class="h-96">
                                 <LineChart
                                     :data="chartData"
+                                    :title="queryResult.visualization.recommendation.config.title"
                                     :x-axis-label="queryResult.visualization.recommendation.config.xAxis"
                                     :y-axis-label="queryResult.visualization.recommendation.config.yAxis"
                                     :area="true"
                                 />
                             </div>
                             <div v-else-if="selectedVisualizationType === 'pie' && hasChartData" class="h-96">
-                                <PieChart :data="chartData" />
+                                <PieChart 
+                                    :data="chartData" 
+                                    :title="queryResult.visualization.recommendation.config.title"
+                                />
                             </div>
                             <div v-else-if="selectedVisualizationType === 'scatter' && hasChartData" class="h-96">
                                 <ScatterChart
                                     :data="chartData"
+                                    :title="queryResult.visualization.recommendation.config?.title"
                                     :x-axis-label="queryResult.visualization.recommendation.config?.xAxis"
                                     :y-axis-label="queryResult.visualization.recommendation.config?.yAxis"
                                 />

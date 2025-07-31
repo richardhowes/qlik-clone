@@ -58,10 +58,13 @@ class AIQueryService
                 ->withSystemPrompt('You are a SQL expert. Generate only valid SQL queries without explanations.')
                 ->asText();
 
-            $sql = $this->extractSQL($response->text);
+            $extracted = $this->extractSQLAndTitle($response->text);
+            $sql = $extracted['sql'];
+            $title = $extracted['title'];
 
-            Log::info('SQL generated', [
+            Log::info('SQL and title generated', [
                 'sql' => $sql,
+                'title' => $title,
             ]);
 
             $validation = $this->validateGeneratedSQL($sql);
@@ -72,6 +75,7 @@ class AIQueryService
             return [
                 'success' => true,
                 'sql' => $sql,
+                'title' => $title,
                 'explanation' => $this->generateQueryExplanation($question, $sql),
             ];
         } catch (\Exception $e) {
@@ -139,6 +143,8 @@ $schemaDescription
 
 Generate a SQL query to answer this question: "$question"
 
+Also provide a concise chart title (max 50 characters) that clearly describes what the data shows.
+
 Requirements:
 - Use only the tables and columns available in the schema
 - Include appropriate JOINs if multiple tables are needed
@@ -148,8 +154,10 @@ Requirements:
   - "this month" means the current calendar month
   - "last year" means the previous calendar year
 - For revenue/amount calculations, look for columns containing: amount, total, price, revenue, value
-- Return only the SQL query without any explanation
-- Do NOT include semicolon at the end
+- Return the SQL query and chart title in this exact format:
+  SQL: [your query here]
+  TITLE: [your title here]
+- Do NOT include semicolon at the end of SQL
 - Do NOT add LIMIT clause (it will be added automatically)
 - Make reasonable assumptions about column meanings based on their names
 
@@ -166,6 +174,12 @@ Example patterns:
 - For "average X": AVG(column) for numeric values
 - For "compare 2023 to 2024": Include year as a grouping column, filter for both years
 - For "X vs Y": Structure data to show both X and Y as separate series
+
+Title examples:
+- "Monthly Revenue Comparison: 2023 vs 2024"
+- "Top Products by Sales Volume"
+- "Customer Growth Trend"
+- "Revenue by Region"
 PROMPT;
     }
 
@@ -195,6 +209,68 @@ PROMPT;
         $sql = rtrim($sql, ';');
 
         return $sql;
+    }
+
+    protected function extractSQLAndTitle(string $response): array
+    {
+        $sql = '';
+        $title = '';
+
+        // Log the raw response for debugging
+        Log::info('Raw AI response for SQL extraction', ['response' => $response]);
+
+        // Try to extract SQL and TITLE from the formatted response
+        // Look for SQL: followed by the query, ending before TITLE: or end of string
+        if (preg_match('/SQL:\s*(.+?)(?=TITLE:|$)/si', $response, $sqlMatch)) {
+            $sql = trim($sqlMatch[1]);
+        }
+
+        // Look for TITLE: followed by the title
+        if (preg_match('/TITLE:\s*(.+?)$/mi', $response, $titleMatch)) {
+            $title = trim($titleMatch[1]);
+        }
+
+        // If SQL still contains TITLE, extract it again more carefully
+        if (stripos($sql, 'TITLE:') !== false) {
+            $parts = preg_split('/TITLE:/i', $sql, 2);
+            $sql = trim($parts[0]);
+            if (empty($title) && isset($parts[1])) {
+                $title = trim($parts[1]);
+            }
+        }
+
+        // Fallback to old method if new format not found
+        if (empty($sql)) {
+            $sql = $this->extractSQL($response);
+        }
+
+        // Clean up SQL
+        $sql = preg_replace('/```sql\s*\n?/', '', $sql);
+        $sql = preg_replace('/```\s*\n?/', '', $sql);
+        $sql = trim($sql);
+        $sql = rtrim($sql, ';');
+
+        // Remove any remaining TITLE: text from SQL
+        $sql = preg_replace('/\s*TITLE:.*$/i', '', $sql);
+
+        // Clean up title
+        $title = str_replace(['"', "'", '`'], '', $title);
+        $title = trim($title);
+
+        // Ensure title is not too long
+        if (strlen($title) > 60) {
+            $title = substr($title, 0, 57) . '...';
+        }
+
+        Log::info('Extracted SQL and title', [
+            'sql' => $sql,
+            'title' => $title,
+        ]);
+
+        return [
+            'sql' => $sql,
+            'title' => $title ?: 'Query Results',
+        ];
     }
 
     protected function validateGeneratedSQL(string $sql): array
@@ -338,6 +414,7 @@ AND $dateCol < CURRENT_DATE";
                 return [
                     'success' => true,
                     'sql' => $sql,
+                    'title' => 'Last Month Revenue',
                     'explanation' => 'This query calculates the total revenue from the last month. (Note: This is a basic query generated offline - the AI service is currently unavailable)',
                 ];
             }

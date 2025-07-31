@@ -79,6 +79,7 @@ const option = computed<EChartsOption>(() => {
             ? {
                   text: props.title,
                   left: 'center',
+                  top: 10,
               }
             : undefined,
         tooltip: {
@@ -90,11 +91,24 @@ const option = computed<EChartsOption>(() => {
                       bottom: 0,
                   }
                 : undefined,
+        grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '15%',
+            top: props.title ? '15%' : '10%',
+            containLabel: true,
+        },
         xAxis: {
             type: 'category',
             data: xAxisData,
             name: props.xAxisLabel,
+            nameLocation: 'middle',
+            nameGap: 30,
             boundaryGap: false,
+            axisLabel: {
+                interval: 0,
+                rotate: xAxisData.length > 7 ? 45 : 0,
+            },
         },
         yAxis: {
             type: 'value',

@@ -124,7 +124,9 @@ class VisualizationService
                         'yAxis' => $pattern['metric_columns'][0] ?? null,
                         'series' => $pattern['grouping_column'],
                         'comparison' => true,
+                        'title' => $this->generateChartTitle($question, $pattern),
                     ],
+                    'allowed_types' => ['line', 'bar', 'area', 'table'], // Restrict chart types for comparisons
                 ];
             }
 
@@ -137,7 +139,9 @@ class VisualizationService
                         'yAxis' => $pattern['metric_columns'][0] ?? null,
                         'series' => $pattern['grouping_column'],
                         'comparison' => true,
+                        'title' => $this->generateChartTitle($question, $pattern),
                     ],
+                    'allowed_types' => ['bar', 'line', 'area', 'table'], // Restrict chart types for comparisons
                 ];
             }
         }
@@ -150,6 +154,7 @@ class VisualizationService
                 'config' => [
                     'xAxis' => $characteristics['time_columns'][0] ?? null,
                     'yAxis' => $characteristics['numeric_columns'][0] ?? null,
+                    'title' => $this->generateChartTitle($question),
                 ],
             ];
         }
@@ -164,6 +169,7 @@ class VisualizationService
                     'config' => [
                         'dimension' => $characteristics['categorical_columns'][0] ?? null,
                         'metric' => $characteristics['numeric_columns'][0] ?? null,
+                        'title' => $this->generateChartTitle($question),
                     ],
                 ];
             } else {
@@ -173,6 +179,7 @@ class VisualizationService
                     'config' => [
                         'xAxis' => $characteristics['categorical_columns'][0] ?? null,
                         'yAxis' => $characteristics['numeric_columns'][0] ?? null,
+                        'title' => $this->generateChartTitle($question),
                     ],
                 ];
             }
@@ -186,6 +193,7 @@ class VisualizationService
                 'config' => [
                     'xAxis' => $characteristics['numeric_columns'][0],
                     'yAxis' => $characteristics['numeric_columns'][1],
+                    'title' => $this->generateChartTitle($question),
                 ],
             ];
         }
@@ -359,6 +367,35 @@ class VisualizationService
             ],
             'alternatives' => [],
         ];
+    }
+
+    protected function generateChartTitle(string $question, ?array $pattern = null): string
+    {
+        // Extract key information from the question
+        $title = ucfirst(trim($question));
+        
+        // Remove trailing question mark
+        $title = rtrim($title, '?');
+        
+        // If it's a comparison pattern, make the title more descriptive
+        if ($pattern) {
+            if ($pattern['type'] === 'year_over_year' && isset($pattern['groups'])) {
+                $years = array_map('strval', $pattern['groups']);
+                if (count($years) === 2) {
+                    $title = str_replace(['compare', 'vs'], 'Comparison:', $title);
+                    if (!str_contains(strtolower($title), 'comparison')) {
+                        $title = "Comparison: {$years[0]} vs {$years[1]}";
+                    }
+                }
+            }
+        }
+        
+        // Shorten if too long
+        if (strlen($title) > 60) {
+            $title = substr($title, 0, 57) . '...';
+        }
+        
+        return $title;
     }
 
     protected function detectComparisonPattern(array $data, array $columns, array $characteristics): ?array

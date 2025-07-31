@@ -104,6 +104,11 @@ class AiInsightsController extends Controller
                 }
             }
 
+            // Use AI-generated title if available, otherwise use the one from visualization service
+            if (isset($translationResult['title']) && !empty($translationResult['title'])) {
+                $visualization['recommendation']['config']['title'] = $translationResult['title'];
+            }
+
             // Generate explanation of results
             $explanation = $this->insightsService->explainQueryResult(
                 $queryResult,
