@@ -101,9 +101,6 @@ const availableVisualizationTypes = computed(() => {
     // Filter based on data characteristics if needed
     if (!queryResult.value) return allTypes;
     
-    const data = queryResult.value.result.data;
-    const columns = queryResult.value.result.columns;
-    
     // All types are generally available, but you could add logic here
     // to filter out inappropriate chart types based on data
     return allTypes;
@@ -120,25 +117,72 @@ const chartData = computed(() => {
     console.log('Raw data:', data);
     
     // Transform data for bar, line, or area chart (they use the same format)
-    if (['bar', 'line', 'area'].includes(selectedVisualizationType.value) && config?.xAxis && config?.yAxis) {
-        const transformed = data.map((item: any) => ({
-            name: String(item[config.xAxis] || ''),
-            value: Number(item[config.yAxis] || 0)
-        }));
-        console.log('Transformed data for chart:', transformed);
-        return transformed;
+    if (['bar', 'line', 'area'].includes(selectedVisualizationType.value)) {
+        // Try to use recommended config first, then fall back to auto-detection
+        const xAxis = config?.xAxis || findBestDimension(data, queryResult.value.result.columns);
+        const yAxis = config?.yAxis || findBestMetric(data, queryResult.value.result.columns);
+        
+        if (xAxis && yAxis) {
+            const transformed = data.map((item: any) => ({
+                name: String(item[xAxis] || ''),
+                value: Number(item[yAxis] || 0)
+            }));
+            console.log('Transformed data for chart:', transformed);
+            return transformed;
+        }
     }
     
     // Transform data for pie chart
-    if (selectedVisualizationType.value === 'pie' && config?.dimension && config?.metric) {
-        return data.map((item: any) => ({
-            name: String(item[config.dimension] || ''),
-            value: Number(item[config.metric] || 0)
-        }));
+    if (selectedVisualizationType.value === 'pie') {
+        // Try to use recommended config first, then fall back to auto-detection
+        const dimension = config?.dimension || config?.xAxis || findBestDimension(data, queryResult.value.result.columns);
+        const metric = config?.metric || config?.yAxis || findBestMetric(data, queryResult.value.result.columns);
+        
+        if (dimension && metric) {
+            return data.map((item: any) => ({
+                name: String(item[dimension] || ''),
+                value: Number(item[metric] || 0)
+            }));
+        }
+    }
+    
+    // Transform data for scatter chart
+    if (selectedVisualizationType.value === 'scatter') {
+        const xAxis = config?.xAxis || findBestMetric(data, queryResult.value.result.columns, 0);
+        const yAxis = config?.yAxis || findBestMetric(data, queryResult.value.result.columns, 1);
+        
+        if (xAxis && yAxis) {
+            return data.map((item: any) => ({
+                x: Number(item[xAxis] || 0),
+                y: Number(item[yAxis] || 0),
+                name: item[findBestDimension(data, queryResult.value.result.columns)] || ''
+            }));
+        }
     }
     
     return data;
 });
+
+// Helper functions to find best columns for visualization
+const findBestDimension = (data: any[], columns: any[]) => {
+    // Look for non-numeric columns (categories, dates, etc.)
+    for (const col of columns) {
+        const sampleValue = data[0]?.[col.name];
+        if (sampleValue !== undefined && (isNaN(Number(sampleValue)) || col.type?.includes('date') || col.type?.includes('string'))) {
+            return col.name;
+        }
+    }
+    return columns[0]?.name;
+};
+
+const findBestMetric = (data: any[], columns: any[], index = 0) => {
+    // Look for numeric columns
+    const numericColumns = columns.filter(col => {
+        const sampleValue = data[0]?.[col.name];
+        return sampleValue !== undefined && !isNaN(Number(sampleValue)) && !col.type?.includes('date');
+    });
+    return numericColumns[index]?.name || columns[index]?.name;
+};
 
 const handleSubmit = async () => {
     if (!query.value.trim()) {
@@ -431,11 +475,11 @@ onMounted(() => {
                                 :data="chartData"
                             />
                         </div>
-                        <div v-else-if="selectedVisualizationType === 'scatter' && queryResult.visualization.recommendation.config" class="h-96">
+                        <div v-else-if="selectedVisualizationType === 'scatter' && chartData.length > 0" class="h-96">
                             <ScatterChart
-                                :data="queryResult.result.data"
-                                :x-key="queryResult.visualization.recommendation.config.xAxis"
-                                :y-key="queryResult.visualization.recommendation.config.yAxis"
+                                :data="chartData"
+                                :x-axis-label="queryResult.visualization.recommendation.config?.xAxis"
+                                :y-axis-label="queryResult.visualization.recommendation.config?.yAxis"
                             />
                         </div>
                         <div v-else class="overflow-x-auto">
