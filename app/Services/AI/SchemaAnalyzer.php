@@ -28,12 +28,34 @@ class SchemaAnalyzer
 
                 // Get table list
                 $tables = $this->getTables($connector, $config, $dataSource->type);
+                
+                Log::info('Total tables found', [
+                    'count' => count($tables),
+                    'data_source_id' => $dataSource->id,
+                ]);
 
                 $schema = [];
                 
-                // For now, just use all tables - you've already limited your dataset
-                foreach ($tables as $table) {
-                    $schema[$table] = $this->getTableColumns($connector, $config, $table, $dataSource->type);
+                // Limit tables to analyze to prevent timeouts
+                $relevantTables = $this->filterRelevantTables($tables);
+                $tablesToAnalyze = array_slice($relevantTables, 0, 50); // Limit to 50 most relevant tables
+                
+                Log::info('Analyzing subset of tables', [
+                    'analyzing' => count($tablesToAnalyze),
+                    'relevant' => count($relevantTables),
+                    'total' => count($tables),
+                ]);
+                
+                foreach ($tablesToAnalyze as $table) {
+                    try {
+                        $schema[$table] = $this->getTableColumns($connector, $config, $table, $dataSource->type);
+                    } catch (\Exception $e) {
+                        Log::warning('Failed to analyze table', [
+                            'table' => $table,
+                            'error' => $e->getMessage(),
+                        ]);
+                        // Continue with other tables
+                    }
                 }
 
                 return $schema;
@@ -225,5 +247,65 @@ class SchemaAnalyzer
         }
 
         return $relationships;
+    }
+    
+    protected function filterRelevantTables(array $tables): array
+    {
+        // Prioritize tables that are likely to contain business data
+        $priorities = [
+            // High priority - likely main business tables
+            'reservation' => 10,
+            'booking' => 10,
+            'revenue' => 10,
+            'payment' => 9,
+            'invoice' => 9,
+            'customer' => 9,
+            'guest' => 9,
+            'order' => 8,
+            'transaction' => 8,
+            'product' => 8,
+            'item' => 7,
+            'service' => 7,
+            'room' => 7,
+            'rate' => 6,
+            'price' => 6,
+            // Medium priority
+            'user' => 5,
+            'account' => 5,
+            'report' => 4,
+            'stat' => 4,
+            // Low priority - system tables
+            'log' => 1,
+            'audit' => 1,
+            'migration' => 0,
+            'oauth' => 0,
+            'cache' => 0,
+            'session' => 0,
+        ];
+        
+        // Score each table based on keywords
+        $scoredTables = [];
+        foreach ($tables as $table) {
+            $tableLower = strtolower($table);
+            $score = 3; // Default score
+            
+            foreach ($priorities as $keyword => $priority) {
+                if (str_contains($tableLower, $keyword)) {
+                    $score = max($score, $priority);
+                }
+            }
+            
+            // Boost score for tables starting with certain prefixes that look like main tables
+            if (preg_match('/^(rv_|fn_|rt_|pr_)/', $tableLower)) {
+                $score += 2;
+            }
+            
+            $scoredTables[$table] = $score;
+        }
+        
+        // Sort by score descending
+        arsort($scoredTables);
+        
+        return array_keys($scoredTables);
     }
 }

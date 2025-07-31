@@ -45,6 +45,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('insights/proactive', [AiInsightsController::class, 'getProactiveInsights'])->name('insights.proactive');
     Route::post('insights/visualization', [AiInsightsController::class, 'generateVisualization'])->name('insights.visualization');
     Route::post('insights/save', [AiInsightsController::class, 'saveInsight'])->name('insights.save');
+    Route::get('insights/debug', [AiInsightsController::class, 'debugDataSource'])->name('insights.debug');
 
     Route::get('favorites', function () {
         return Inertia::render('Favorites');

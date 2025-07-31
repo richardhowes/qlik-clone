@@ -25,22 +25,45 @@ class InsightsService
     {
         $cacheKey = 'proactive_insights:'.$dataSource->id;
 
-        return Cache::remember($cacheKey, 1800, function () use ($dataSource) {
+        // For development, let's skip caching to see errors more clearly
+        // return Cache::remember($cacheKey, 1800, function () use ($dataSource) {
             try {
+                Log::info('Starting proactive insights generation', [
+                    'data_source_id' => $dataSource->id,
+                    'type' => $dataSource->type,
+                ]);
+                
                 $schema = $this->schemaAnalyzer->getSchemaContext($dataSource);
+                
+                Log::info('Schema retrieved', [
+                    'tables' => array_keys($schema),
+                ]);
+                
                 $insights = [];
 
-                // Analyze key metrics
-                $metricInsights = $this->analyzeKeyMetrics($dataSource, $schema);
-                $insights = array_merge($insights, $metricInsights);
+                // Only run these if we have schema data
+                if (!empty($schema)) {
+                    // Analyze key metrics
+                    $metricInsights = $this->analyzeKeyMetrics($dataSource, $schema);
+                    $insights = array_merge($insights, $metricInsights);
 
-                // Detect anomalies
-                $anomalies = $this->detectAnomalies($dataSource, $schema);
-                $insights = array_merge($insights, $anomalies);
+                    // Skip anomaly and trend detection for now as they use MySQL-specific syntax
+                    // TODO: Make these database-agnostic
+                    if ($dataSource->type === 'mysql') {
+                        // Detect anomalies
+                        $anomalies = $this->detectAnomalies($dataSource, $schema);
+                        $insights = array_merge($insights, $anomalies);
 
-                // Find trends
-                $trends = $this->analyzeTrends($dataSource, $schema);
-                $insights = array_merge($insights, $trends);
+                        // Find trends
+                        $trends = $this->analyzeTrends($dataSource, $schema);
+                        $insights = array_merge($insights, $trends);
+                    }
+                }
+
+                // If no insights were generated, provide some basic ones
+                if (empty($insights)) {
+                    $insights = $this->getDefaultInsights($dataSource);
+                }
 
                 return [
                     'success' => true,
@@ -51,15 +74,12 @@ class InsightsService
                 Log::error('Proactive insights generation failed', [
                     'data_source_id' => $dataSource->id,
                     'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
                 ]);
 
-                return [
-                    'success' => false,
-                    'insights' => [],
-                    'error' => 'Failed to generate insights',
-                ];
+                throw $e; // Re-throw to see the actual error in the response
             }
-        });
+        // });
     }
 
     public function explainQueryResult(array $queryResult, string $originalQuestion): string
@@ -78,7 +98,7 @@ Keep it under 3 sentences.
 PROMPT;
 
             $response = Prism::text()
-                ->using(Provider::OpenAI, 'gpt-3.5-turbo')
+                ->using(Provider::OpenAI, 'gpt-4o-mini')
                 ->withPrompt($prompt)
                 ->withMaxTokens(150)
                 ->asText();
@@ -385,5 +405,32 @@ PROMPT;
         }
 
         return $summary;
+    }
+    
+    protected function getDefaultInsights(DataSource $dataSource): array
+    {
+        return [
+            [
+                'type' => 'suggestion',
+                'title' => 'Explore Your Data',
+                'description' => 'Get started by asking questions about your ' . $dataSource->name . ' data',
+                'query' => 'What are the main tables in my database?',
+                'priority' => 1,
+            ],
+            [
+                'type' => 'suggestion',
+                'title' => 'Find Key Metrics',
+                'description' => 'Discover important metrics and KPIs in your data',
+                'query' => 'What are the key metrics I should track?',
+                'priority' => 2,
+            ],
+            [
+                'type' => 'suggestion',
+                'title' => 'Recent Activity',
+                'description' => 'See what has been happening recently in your data',
+                'query' => 'Show me recent activity or changes',
+                'priority' => 3,
+            ],
+        ];
     }
 }

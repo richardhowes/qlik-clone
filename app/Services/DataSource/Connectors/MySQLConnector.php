@@ -88,7 +88,7 @@ class MySQLConnector implements ConnectorInterface
             $pdo = $this->getConnection($config);
 
             // Set a reasonable timeout
-            $pdo->setAttribute(PDO::ATTR_TIMEOUT, 30);
+            $pdo->setAttribute(PDO::ATTR_TIMEOUT, 10); // Reduced from 30 to prevent long waits
 
             $stmt = $pdo->prepare($query);
             $stmt->execute($params);

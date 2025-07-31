@@ -6,6 +6,7 @@ use App\Models\DataSource;
 use App\Models\Query;
 use App\Services\AI\AIQueryService;
 use App\Services\AI\InsightsService;
+use App\Services\AI\SchemaAnalyzer;
 use App\Services\AI\VisualizationService;
 use App\Services\Query\QueryService;
 use Illuminate\Http\Request;
@@ -172,12 +173,13 @@ class AiInsightsController extends Controller
             Log::error('Proactive insights error', [
                 'data_source_id' => $request->data_source_id,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'insights' => [],
-                'error' => 'Failed to generate insights',
+                'error' => 'Failed to generate insights: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -238,6 +240,41 @@ class AiInsightsController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to save insight',
+            ], 500);
+        }
+    }
+    
+    public function debugDataSource(Request $request)
+    {
+        $request->validate([
+            'data_source_id' => 'required|exists:data_sources,id',
+        ]);
+
+        $dataSource = DataSource::findOrFail($request->data_source_id);
+
+        // Ensure user owns the data source
+        if ($dataSource->user_id !== Auth::id()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        try {
+            $schema = app(SchemaAnalyzer::class)->getSchemaContext($dataSource);
+            
+            return response()->json([
+                'success' => true,
+                'data_source' => [
+                    'id' => $dataSource->id,
+                    'name' => $dataSource->name,
+                    'type' => $dataSource->type,
+                    'status' => $dataSource->status,
+                ],
+                'schema' => $schema,
+                'table_count' => count($schema),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

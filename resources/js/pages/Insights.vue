@@ -117,11 +117,19 @@ const handleSubmit = async () => {
             error.value = response.data.error || 'Failed to process your question';
         }
     } catch (err: any) {
-        console.error('API Error:', err.response);
+        console.error('API Error:', err);
+        console.error('Error response:', err.response);
+        console.error('Error response data:', err.response?.data);
+        console.error('Error response status:', err.response?.status);
+        
         if (err.response?.status === 422 && err.response?.data?.errors) {
             // Validation errors
             const errors = err.response.data.errors;
             error.value = Object.values(errors).flat().join(', ');
+        } else if (err.response?.status === 500) {
+            // Server error - show more details
+            error.value = err.response?.data?.error || err.response?.data?.message || 'Server error occurred. Check the logs for details.';
+            console.error('Server error details:', err.response?.data);
         } else {
             error.value = err.response?.data?.error || err.response?.data?.message || 'An error occurred while processing your question';
         }
@@ -136,15 +144,25 @@ const loadProactiveInsights = async () => {
     loadingInsights.value = true;
     
     try {
+        console.log('Loading proactive insights for data source:', selectedDataSource.value);
         const response = await axios.get('/insights/proactive', {
             params: { data_source_id: selectedDataSource.value },
         });
         
+        console.log('Proactive insights response:', response.data);
+        
         if (response.data.success) {
             proactiveInsights.value = response.data.insights;
         }
-    } catch (err) {
+    } catch (err: any) {
         console.error('Failed to load proactive insights:', err);
+        console.error('Error response:', err.response);
+        console.error('Error response data:', err.response?.data);
+        console.error('Error response status:', err.response?.status);
+        console.error('Error response headers:', err.response?.headers);
+        
+        // Show user-friendly error message
+        error.value = err.response?.data?.error || err.response?.data?.message || 'Failed to load AI insights. Please try again.';
     } finally {
         loadingInsights.value = false;
     }
@@ -397,9 +415,21 @@ onMounted(() => {
             </div>
             
             <!-- Proactive Insights -->
-            <div v-else-if="!query && proactiveInsights.length > 0" class="mt-8">
+            <div v-else-if="!query && (proactiveInsights.length > 0 || loadingInsights)" class="mt-8">
                 <h2 class="text-xl font-semibold mb-4">Discover Insights</h2>
-                <div class="grid gap-4 md:grid-cols-2">
+                
+                <!-- Loading state for proactive insights -->
+                <div v-if="loadingInsights" class="grid gap-4 md:grid-cols-2">
+                    <Card v-for="i in 4" :key="i" class="animate-pulse">
+                        <CardHeader>
+                            <div class="h-5 bg-muted rounded w-3/4 mb-2"></div>
+                            <div class="h-4 bg-muted rounded w-full"></div>
+                        </CardHeader>
+                    </Card>
+                </div>
+                
+                <!-- Actual insights -->
+                <div v-else class="grid gap-4 md:grid-cols-2">
                     <Card
                         v-for="insight in proactiveInsights"
                         :key="insight.title"
