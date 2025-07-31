@@ -120,12 +120,8 @@ class VisualizationService
 
         // Categorical comparisons
         if ($characteristics['has_categories'] && $characteristics['has_numeric_data']) {
-            $categoryCount = count(array_unique(array_column(
-                $characteristics['data'] ?? [],
-                $characteristics['categorical_columns'][0] ?? ''
-            )));
-
-            if ($categoryCount <= 5 && $categoryCount > 0) {
+            // For aggregated queries (like totals by month), always use bar chart
+            if ($characteristics['row_count'] < 20 && !empty($characteristics['categorical_columns'])) {
                 return [
                     'type' => 'pie',
                     'reason' => 'Pie charts work well for showing parts of a whole with few categories',

@@ -73,6 +73,7 @@ const error = ref<string | null>(null);
 const queryResult = ref<QueryResult | null>(null);
 const proactiveInsights = ref<ProactiveInsight[]>([]);
 const loadingInsights = ref(false);
+const activeVisualizationType = ref<string>('table');
 
 const sampleQuestions = [
     'What were our top performing products last month?',
@@ -82,7 +83,61 @@ const sampleQuestions = [
 ];
 
 const selectedVisualizationType = computed(() => {
-    return queryResult.value?.visualization.recommendation.type || 'table';
+    // Use active visualization type if user has selected one, otherwise use recommendation
+    return activeVisualizationType.value || queryResult.value?.visualization.recommendation.type || 'table';
+});
+
+const availableVisualizationTypes = computed(() => {
+    // Define all available visualization types
+    const allTypes = [
+        { type: 'line', label: 'Line' },
+        { type: 'bar', label: 'Bar' },
+        { type: 'area', label: 'Area' },
+        { type: 'pie', label: 'Pie' },
+        { type: 'scatter', label: 'Scatter' },
+        { type: 'table', label: 'Table' },
+    ];
+    
+    // Filter based on data characteristics if needed
+    if (!queryResult.value) return allTypes;
+    
+    const data = queryResult.value.result.data;
+    const columns = queryResult.value.result.columns;
+    
+    // All types are generally available, but you could add logic here
+    // to filter out inappropriate chart types based on data
+    return allTypes;
+});
+
+const chartData = computed(() => {
+    if (!queryResult.value?.result?.data) return [];
+    
+    const data = queryResult.value.result.data;
+    const config = queryResult.value.visualization.recommendation.config;
+    
+    console.log('Chart type:', selectedVisualizationType.value);
+    console.log('Config:', config);
+    console.log('Raw data:', data);
+    
+    // Transform data for bar, line, or area chart (they use the same format)
+    if (['bar', 'line', 'area'].includes(selectedVisualizationType.value) && config?.xAxis && config?.yAxis) {
+        const transformed = data.map((item: any) => ({
+            name: String(item[config.xAxis] || ''),
+            value: Number(item[config.yAxis] || 0)
+        }));
+        console.log('Transformed data for chart:', transformed);
+        return transformed;
+    }
+    
+    // Transform data for pie chart
+    if (selectedVisualizationType.value === 'pie' && config?.dimension && config?.metric) {
+        return data.map((item: any) => ({
+            name: String(item[config.dimension] || ''),
+            value: Number(item[config.metric] || 0)
+        }));
+    }
+    
+    return data;
 });
 
 const handleSubmit = async () => {
@@ -113,6 +168,11 @@ const handleSubmit = async () => {
         
         if (response.data.success) {
             queryResult.value = response.data;
+            // Reset to recommended visualization when new query is run
+            activeVisualizationType.value = response.data.visualization.recommendation.type;
+            console.log('Query result:', queryResult.value);
+            console.log('Result data:', queryResult.value.result.data);
+            console.log('Visualization config:', queryResult.value.visualization);
         } else {
             error.value = response.data.error || 'Failed to process your question';
         }
@@ -171,6 +231,26 @@ const loadProactiveInsights = async () => {
 const askFollowUpQuestion = (question: string) => {
     query.value = question;
     handleSubmit();
+};
+
+const formatCellValue = (value: any, type?: string): string => {
+    if (value === null || value === undefined) return '-';
+    
+    // Format numbers with commas
+    if (typeof value === 'number' || (!isNaN(value) && !isNaN(parseFloat(value)))) {
+        return new Intl.NumberFormat().format(Number(value));
+    }
+    
+    // Format dates
+    if (type?.includes('date') || type?.includes('time')) {
+        try {
+            return new Date(value).toLocaleDateString();
+        } catch {
+            return String(value);
+        }
+    }
+    
+    return String(value);
 };
 
 onMounted(() => {
@@ -324,25 +404,31 @@ onMounted(() => {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div v-if="selectedVisualizationType === 'bar' && queryResult.visualization.recommendation.config" class="h-96">
+                        <div v-if="selectedVisualizationType === 'bar' && chartData.length > 0" class="h-96">
                             <BarChart
-                                :data="queryResult.result.data"
-                                :x-key="queryResult.visualization.recommendation.config.xAxis"
-                                :y-key="queryResult.visualization.recommendation.config.yAxis"
+                                :data="chartData"
+                                :x-axis-label="queryResult.visualization.recommendation.config.xAxis"
+                                :y-axis-label="queryResult.visualization.recommendation.config.yAxis"
                             />
                         </div>
-                        <div v-else-if="selectedVisualizationType === 'line' && queryResult.visualization.recommendation.config" class="h-96">
+                        <div v-else-if="selectedVisualizationType === 'line' && chartData.length > 0" class="h-96">
                             <LineChart
-                                :data="queryResult.result.data"
-                                :x-key="queryResult.visualization.recommendation.config.xAxis"
-                                :y-key="queryResult.visualization.recommendation.config.yAxis"
+                                :data="chartData"
+                                :x-axis-label="queryResult.visualization.recommendation.config.xAxis"
+                                :y-axis-label="queryResult.visualization.recommendation.config.yAxis"
                             />
                         </div>
-                        <div v-else-if="selectedVisualizationType === 'pie' && queryResult.visualization.recommendation.config" class="h-96">
+                        <div v-else-if="selectedVisualizationType === 'area' && chartData.length > 0" class="h-96">
+                            <LineChart
+                                :data="chartData"
+                                :x-axis-label="queryResult.visualization.recommendation.config.xAxis"
+                                :y-axis-label="queryResult.visualization.recommendation.config.yAxis"
+                                :area="true"
+                            />
+                        </div>
+                        <div v-else-if="selectedVisualizationType === 'pie' && chartData.length > 0" class="h-96">
                             <PieChart
-                                :data="queryResult.result.data"
-                                :category-key="queryResult.visualization.recommendation.config.dimension"
-                                :value-key="queryResult.visualization.recommendation.config.metric"
+                                :data="chartData"
                             />
                         </div>
                         <div v-else-if="selectedVisualizationType === 'scatter' && queryResult.visualization.recommendation.config" class="h-96">
@@ -353,39 +439,39 @@ onMounted(() => {
                             />
                         </div>
                         <div v-else class="overflow-x-auto">
-                            <table class="w-full text-sm">
+                            <table class="w-full text-sm border-collapse">
                                 <thead>
-                                    <tr class="border-b">
-                                        <th v-for="col in queryResult.result.columns" :key="col.name" class="text-left p-2">
+                                    <tr class="border-b bg-muted/50">
+                                        <th v-for="col in queryResult.result.columns" :key="col.name" class="text-left p-3 font-medium">
                                             {{ col.name }}
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="(row, idx) in queryResult.result.data.slice(0, 10)" :key="idx" class="border-b">
-                                        <td v-for="col in queryResult.result.columns" :key="col.name" class="p-2">
-                                            {{ row[col.name] }}
+                                    <tr v-for="(row, idx) in queryResult.result.data" :key="idx" class="border-b hover:bg-muted/30">
+                                        <td v-for="col in queryResult.result.columns" :key="col.name" class="p-3">
+                                            {{ formatCellValue(row[col.name], col.type) }}
                                         </td>
                                     </tr>
                                 </tbody>
                             </table>
-                            <p v-if="queryResult.result.row_count > 10" class="text-sm text-muted-foreground mt-2">
-                                Showing 10 of {{ queryResult.result.row_count }} rows
+                            <p v-if="queryResult.result.row_count > queryResult.result.data.length" class="text-sm text-muted-foreground mt-2">
+                                Showing {{ queryResult.result.data.length }} of {{ queryResult.result.row_count }} rows
                             </p>
                         </div>
                         
                         <!-- Alternative Visualizations -->
-                        <div v-if="queryResult.visualization.alternatives.length > 0" class="mt-4">
+                        <div class="mt-4">
                             <p class="text-sm font-medium mb-2">Try other visualizations:</p>
-                            <div class="flex gap-2">
+                            <div class="flex gap-2 flex-wrap">
                                 <Button
-                                    v-for="alt in queryResult.visualization.alternatives"
-                                    :key="alt.type"
-                                    variant="outline"
+                                    v-for="vizType in availableVisualizationTypes"
+                                    :key="vizType.type"
                                     size="sm"
-                                    @click="selectedVisualizationType = alt.type"
+                                    :variant="activeVisualizationType === vizType.type ? 'default' : 'outline'"
+                                    @click="activeVisualizationType = vizType.type"
                                 >
-                                    {{ alt.type }}
+                                    {{ vizType.label }}
                                 </Button>
                             </div>
                         </div>
