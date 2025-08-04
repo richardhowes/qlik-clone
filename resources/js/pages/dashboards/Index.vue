@@ -7,6 +7,7 @@ import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/vue3';
 import { BarChart3, Plus, Search } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import { create } from '@/actions/App/Http/Controllers/DashboardController';
 
 interface Dashboard {
     id: number;
@@ -72,7 +73,7 @@ const filteredDashboards = computed(() => {
                         <Input v-model="searchQuery" placeholder="Search dashboards..." class="w-[200px] pl-8 sm:w-[300px]" />
                     </div>
                     <Button as-child>
-                        <Link :href="route('dashboards.create')">
+                        <Link :href="create.url()">
                             <Plus class="mr-2 h-4 w-4" />
                             New Dashboard
                         </Link>
@@ -87,7 +88,7 @@ const filteredDashboards = computed(() => {
                     <h3 class="mt-4 text-lg font-semibold">No dashboards yet</h3>
                     <p class="mt-2 text-sm text-muted-foreground">Create your first dashboard to start visualizing your data</p>
                     <Button as-child class="mt-4">
-                        <Link :href="route('dashboards.create')">
+                        <Link :href="create.url()">
                             <Plus class="mr-2 h-4 w-4" />
                             Create Dashboard
                         </Link>
